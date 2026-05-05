@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SQLite from 'expo-sqlite';
 import NetInfo from '@react-native-community/netinfo';
 // import { Camera } from 'expo-camera'; // Un-comment when adding real camera
 
 const API_URL = 'http://192.168.100.192:8000/api/upload';
-const QUEUE_KEY = '@actas_queue';
+
+// Abrir la base de datos de SQLite
+const db = SQLite.openDatabaseSync('actas.db');
 
 export default function App() {
   const [transcription, setTranscription] = useState('');
@@ -13,6 +15,18 @@ export default function App() {
   const [queueCount, setQueueCount] = useState(0);
 
   useEffect(() => {
+    // Inicializar tabla
+    db.execAsync(
+      `CREATE TABLE IF NOT EXISTS actas_queue (
+        id TEXT PRIMARY KEY,
+        imageUri TEXT NOT NULL,
+        transcription TEXT,
+        timestamp TEXT NOT NULL
+      );`
+    ).then(() => {
+      updateQueueCount();
+    }).catch(e => console.error("Error creating table", e));
+
     // Escuchar cambios de red
     const unsubscribe = NetInfo.addEventListener(state => {
       setStatus(state.isConnected ? 'Online' : 'Offline');
@@ -21,78 +35,61 @@ export default function App() {
       }
     });
 
-    updateQueueCount();
-
     return () => unsubscribe();
   }, []);
 
   const updateQueueCount = async () => {
     try {
-      const queueStr = await AsyncStorage.getItem(QUEUE_KEY);
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      setQueueCount(queue.length);
+      const result = await db.getAllAsync<{count: number}>('SELECT COUNT(*) as count FROM actas_queue;');
+      setQueueCount(result[0]?.count || 0);
     } catch (e) {
-      console.error(e);
+      console.error("Error al contar", e);
     }
   };
 
   const handleCapture = async () => {
     // Simulación: en producción se usaría la URI de la cámara de Expo
     const mockImageUri = `file://dummy/path/acta_${Date.now()}.jpg`;
-    
-    const newActa = {
-      id: Date.now().toString(),
-      imageUri: mockImageUri,
-      transcription: transcription,
-      timestamp: new Date().toISOString()
-    };
+    const newId = Date.now().toString();
+    const timestamp = new Date().toISOString();
 
     try {
-      // 1. Guardar en Storage Local (Offline-First)
-      const queueStr = await AsyncStorage.getItem(QUEUE_KEY);
-      const queue = queueStr ? JSON.parse(queueStr) : [];
-      queue.push(newActa);
+      // 1. Guardar en SQLite (Offline-First)
+      await db.runAsync(
+        'INSERT INTO actas_queue (id, imageUri, transcription, timestamp) VALUES (?, ?, ?, ?);',
+        [newId, mockImageUri, transcription, timestamp]
+      );
       
-      await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
       setTranscription('');
       updateQueueCount();
-      Alert.alert("Éxito", "Acta guardada localmente.");
+      Alert.alert("Éxito", "Acta guardada localmente en SQLite.");
 
       // 2. Intentar Sincronizar Inmediatamente si hay Red
       if (status === 'Online') {
         syncPendingData();
       }
     } catch (error) {
-      console.error("Error al guardar acta", error);
+      console.error("Error al guardar acta en SQLite", error);
     }
   };
 
   const syncPendingData = async () => {
     try {
-      const queueStr = await AsyncStorage.getItem(QUEUE_KEY);
-      if (!queueStr) return;
-      
-      let queue = JSON.parse(queueStr);
+      const queue = await db.getAllAsync<any>('SELECT * FROM actas_queue ORDER BY timestamp ASC;');
       if (queue.length === 0) return;
-
-      const remainingQueue = [];
 
       for (const acta of queue) {
         try {
           // Enviar por multipart a FastAPI
           const formData = new FormData();
           
-          // Simulando archivo. En prod:
-          // formData.append("file", { uri: acta.imageUri, name: `acta_${acta.id}.jpg`, type: 'image/jpeg' } as any);
-          
-          // Fallback para simulación:
           formData.append("file", {
               uri: acta.imageUri,
               name: `acta_${acta.id}.jpg`,
               type: 'image/jpeg'
-          });
+          } as any);
           
-          formData.append("transcription", acta.transcription);
+          formData.append("transcription", acta.transcription || '');
 
           const response = await fetch(API_URL, {
             method: 'POST',
@@ -105,14 +102,16 @@ export default function App() {
           if (!response.ok) {
              throw new Error(`Server error: ${response.status}`);
           }
+
+          // Si el envío fue exitoso, eliminar de SQLite
+          await db.runAsync('DELETE FROM actas_queue WHERE id = ?;', [acta.id]);
+
         } catch (err) {
-          console.warn(`Falló subida de acta ${acta.id}, reencolando...`, err);
-          remainingQueue.push(acta); // Si falla, reencolar
+          console.warn(`Falló subida de acta ${acta.id}, se mantendrá en SQLite...`, err);
+          // Si falla, se queda en la DB para la próxima sincronización
         }
       }
 
-      // Actualizar la cola solo con los que fallaron
-      await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(remainingQueue));
       updateQueueCount();
 
     } catch (e) {
@@ -147,7 +146,7 @@ export default function App() {
         </TouchableOpacity>
 
         <View style={styles.queueContainer}>
-          <Text style={styles.queueText}>Cola de envío pendiente: {queueCount} actas</Text>
+          <Text style={styles.queueText}>Cola SQLite pendiente: {queueCount} actas</Text>
         </View>
       </ScrollView>
     </View>

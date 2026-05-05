@@ -13,21 +13,28 @@ services:
     volumes:
       - pg_primary_data:/bitnami/postgresql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d elections_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  db-replica:
+  db-cluster-b:
     image: bitnami/postgresql:16
     environment:
-      - POSTGRESQL_REPLICATION_MODE=slave
-      - POSTGRESQL_REPLICATION_USER=repl_user
-      - POSTGRESQL_REPLICATION_PASSWORD=repl_pass
-      - POSTGRESQL_MASTER_HOST=db-primary
+      - POSTGRESQL_USERNAME=postgres
       - POSTGRESQL_PASSWORD=admin
-    depends_on:
-      - db-primary
+      - POSTGRESQL_DATABASE=elections_db
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
-      - pg_replica_data:/bitnami/postgresql
+      - pg_cluster_b_data:/bitnami/postgresql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d elections_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -39,9 +46,19 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
+    environment:
+      - DB_HOST_A=db-primary
+      - DB_HOST_B=db-cluster-b
+      - DB_USER=postgres
+      - DB_PASS=admin
+      - DB_NAME=elections_db
     depends_on:
-      - db-primary
-      - redis
+      db-primary:
+        condition: service_healthy
+      db-cluster-b:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
       - ../backend:/app
       - ../data/ingest:/app/ingest
@@ -57,4 +74,4 @@ services:
 
 volumes:
   pg_primary_data:
-  pg_replica_data:
+  pg_cluster_b_data:
