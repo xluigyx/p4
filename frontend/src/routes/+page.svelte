@@ -3,13 +3,17 @@
     import { gsap } from 'gsap';
 
     let mapElement;
+    let pandoPath;
     let logsElement;
     let ws;
 
     let logs = [];
     let rrv_count = 0;
     let oficial_count = 0;
-    let validos_totales = 0;
+    
+    // KPI: Velocidad de procesamiento
+    let actas_timestamps = [];
+    let velocidad_rpm = 0; // Requests per minute
     
     // Para la animación de "pulso" cuando cambia el partido ganador
     let partido_ganador_actual = null;
@@ -24,6 +28,14 @@
         // Initial Animations
         gsap.from(".glass-card", { y: 30, opacity: 0, duration: 0.6, stagger: 0.1, ease: "power2.out" });
 
+        // Timer for RPM calculation
+        const rpmTimer = setInterval(() => {
+            const now = Date.now();
+            // Keep only timestamps from the last 60 seconds
+            actas_timestamps = actas_timestamps.filter(t => now - t < 60000);
+            velocidad_rpm = actas_timestamps.length;
+        }, 1000);
+
         // Connect to FastAPI WebSocket
         ws = new WebSocket("ws://localhost:8000/ws");
         
@@ -34,6 +46,7 @@
                 let newLog = "";
                 
                 const is_oficial = data.source === "CSV";
+                actas_timestamps.push(Date.now()); // Para medir RPM
                 
                 if (data.status === "VALIDADA") {
                     newLog = `[${timestamp}] [Bot-${data.worker}] [${data.source}] Mesa ${data.mesa}: Procesada.`;
@@ -45,24 +58,27 @@
 
                 logs = [newLog, ...logs].slice(0, 50);
 
-                // Simular cambio de partido ganador para animar el mapa
-                // En un caso real, esto vendría del backend
+                // Simular cambio de partido ganador para animar Pando
                 const posibles_ganadores = ['P1', 'P2', 'P3', 'P4'];
                 const nuevo_ganador = posibles_ganadores[Math.floor(Math.random() * posibles_ganadores.length)];
                 
-                if (mapElement && data.status === "VALIDADA") {
+                if (pandoPath && data.status === "VALIDADA") {
                     if (nuevo_ganador !== partido_ganador_actual) {
                         partido_ganador_actual = nuevo_ganador;
                         const pulseColor = colors[partido_ganador_actual];
                         
-                        // GSAP Pulse Animation
-                        gsap.fromTo(mapElement, 
-                            { filter: `brightness(1) drop-shadow(0 0 0px ${pulseColor})` }, 
-                            { filter: `brightness(1.8) drop-shadow(0 0 30px ${pulseColor})`, duration: 0.4, yoyo: true, repeat: 1 }
+                        // GSAP Pulse Animation specifically on Pando
+                        gsap.fromTo(pandoPath, 
+                            { fill: '#1e293b', filter: `drop-shadow(0 0 0px ${pulseColor})` }, 
+                            { fill: pulseColor, filter: `drop-shadow(0 0 20px ${pulseColor})`, duration: 0.5, yoyo: true, repeat: 1 }
                         );
                     }
                 }
             }
+        };
+
+        return () => {
+            clearInterval(rpmTimer);
         };
     });
 
@@ -79,6 +95,7 @@
         <div class="flex gap-4">
             <span class="glass-pill px-4 py-2 rounded-full text-sm font-semibold text-green-400 border border-green-500/30">RRV: {rrv_count} Actas</span>
             <span class="glass-pill px-4 py-2 rounded-full text-sm font-semibold text-blue-400 border border-blue-500/30">Oficial: {oficial_count} Actas</span>
+            <span class="glass-pill px-4 py-2 rounded-full text-sm font-semibold text-yellow-400 border border-yellow-500/30">⏱️ {velocidad_rpm} actas/min</span>
         </div>
     </header>
 
@@ -89,9 +106,11 @@
             <div class="h-[450px] rounded-xl bg-black/40 flex items-center justify-center border border-white/5 overflow-hidden relative">
                 <!-- SVG Placeholder for Bolivia Map -->
                 <svg bind:this={mapElement} viewBox="0 0 100 100" class="w-2/3 h-2/3 transition-all">
-                    <!-- Simulación de departamento central -->
-                    <path d="M20,50 Q40,20 60,50 T90,50 Q70,80 50,80 T20,50" fill="#1e293b" stroke="#334155" stroke-width="1" />
-                    <text x="35" y="55" fill="#94a3b8" font-size="4">Bolivia Map (Pulse)</text>
+                    <!-- Simulación de departamento de Pando -->
+                    <path bind:this={pandoPath} id="pando" d="M20,30 Q40,10 60,30 T90,30 Q70,50 50,50 T20,30" fill="#1e293b" stroke="#334155" stroke-width="1" class="transition-colors" />
+                    <!-- Otros departamentos simulados -->
+                    <path d="M20,50 Q40,40 60,50 T90,50 Q70,80 50,80 T20,50" fill="#0f172a" stroke="#334155" stroke-width="1" />
+                    <text x="35" y="45" fill="#94a3b8" font-size="4">Bolivia (Pando Arriba)</text>
                 </svg>
             </div>
         </div>
@@ -119,8 +138,8 @@
                     </div>
                     <div class="pt-2 border-t border-white/10 mt-2">
                         <div class="flex justify-between text-xs font-semibold text-gray-300">
-                            <span>Desviación Estándar (Margen de Error):</span>
-                            <span class="text-green-400">0.05%</span>
+                            <span>Velocidad de Orquestador:</span>
+                            <span class="text-yellow-400">{velocidad_rpm} actas/minuto</span>
                         </div>
                     </div>
                 </div>
@@ -131,7 +150,7 @@
                 <h2 class="text-lg font-semibold mb-2 text-gray-200">Live OCR/CSV Stream</h2>
                 <div bind:this={logsElement} class="flex-1 overflow-y-auto font-mono text-xs text-gray-300 space-y-1 bg-black/60 p-3 rounded-xl border border-white/5">
                     {#if logs.length === 0}
-                        <span class="animate-pulse text-gray-500">Esperando conexión de Workers...</span>
+                        <span class="animate-pulse text-gray-500">Esperando conexión de Orquestador...</span>
                     {/if}
                     {#each logs as log}
                         <div class="border-b border-white/5 pb-1">
