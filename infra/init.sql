@@ -1,14 +1,38 @@
 -- Tablas maestras basadas en el Excel
-CREATE TABLE distribucion (depto TEXT, provincia TEXT, municipio TEXT);
-CREATE TABLE recintos (codigo_recinto TEXT PRIMARY KEY, nombre TEXT, direccion TEXT);
-CREATE TABLE actas_impresas (codigo_acta TEXT PRIMARY KEY, habilitados INT, nro_mesa INT);
-
--- Registro de eventos (Event Sourcing) para auditoría
-CREATE TABLE logs_procesamiento (
+CREATE TABLE DistribucionTerritorial (
     id SERIAL PRIMARY KEY,
-    codigo_acta TEXT,
-    fuente TEXT, -- 'OCR' o 'CSV'
-    estado TEXT, -- 'ACEPTADA', 'RECHAZADA'
-    motivo_rechazo TEXT, -- 'MANCHADA', 'ROTA', 'ERROR_SUMA'
+    depto TEXT,
+    provincia TEXT,
+    municipio TEXT
+);
+
+CREATE TABLE RecintosElectorales (
+    codigo_recinto TEXT PRIMARY KEY,
+    nombre TEXT,
+    direccion TEXT,
+    distribucion_id INT REFERENCES DistribucionTerritorial(id)
+);
+
+CREATE TABLE ActasImpresas (
+    codigo_acta TEXT PRIMARY KEY,
+    habilitados INT,
+    nro_mesa INT,
+    codigo_recinto TEXT REFERENCES RecintosElectorales(codigo_recinto)
+);
+
+CREATE TABLE Transcripciones (
+    id SERIAL PRIMARY KEY,
+    codigo_acta TEXT REFERENCES ActasImpresas(codigo_acta),
+    candidato TEXT,
+    votos INT,
     creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de logs para registrar ráfagas de bots
+CREATE TABLE logs_auditoria (
+    id SERIAL PRIMARY KEY,
+    bot_id TEXT,
+    accion TEXT,
+    detalles TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

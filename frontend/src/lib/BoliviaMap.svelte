@@ -1,12 +1,12 @@
 <script>
   import { onMount } from 'svelte';
   import { fade, fly } from 'svelte/transition';
+  import { gsap } from 'gsap';
 
-  export let resultsByDept = {};
-  export let dataMode = 'RRV';
+  let { resultsByDept = {}, dataMode = 'RRV' } = $props();
   
-  let selectedDept = null;
-  let mapStyle = "transform: scale(1); transition: transform 0.8s ease;";
+  let selectedDept = $state(null);
+  let mapStyle = $state("transform: scale(1); transition: transform 0.8s ease;");
 
   function onClickDept(deptId, deptName, event) {
     if (event) {
@@ -39,7 +39,7 @@
     'Empate': '#64748b' // slate
   };
 
-  $: getDeptColor = (deptId) => {
+  function getDeptColor(deptId) {
     const votes = resultsByDept[deptId];
     if (!votes) return '#cbd5e1'; 
     let max = -1;
@@ -53,7 +53,31 @@
       }
     }
     return candColors[winner] || '#cbd5e1';
-  };
+  }
+
+  // Run GSAP effect when resultsByDept changes
+  $effect(() => {
+    if (resultsByDept) {
+        depts.forEach(dpt => {
+            gsap.to(`.dept-${dpt.id}`, {
+                fill: getDeptColor(dpt.id),
+                duration: 1,
+                ease: "power2.out"
+            });
+        });
+    }
+  });
+
+  onMount(() => {
+    gsap.from("path", {
+        scale: 0.9,
+        opacity: 0,
+        duration: 1,
+        stagger: 0.1,
+        transformOrigin: "center center",
+        ease: "elastic.out(1, 0.3)"
+    });
+  });
 </script>
 
 <div class="relative w-full h-[600px] overflow-hidden rounded-3xl bg-slate-900 border border-slate-700">
@@ -63,13 +87,11 @@
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <path 
         d={dpt.d} 
-        fill={getDeptColor(dpt.id)} 
         stroke="#1e293b" 
         stroke-width="3" 
-        class="hover:opacity-80 transition-opacity"
-        on:click={(e) => onClickDept(dpt.id, dpt.name, e)} 
+        class="dept-{dpt.id} hover:opacity-80 transition-opacity"
+        onclick={(e) => onClickDept(dpt.id, dpt.name, e)} 
       />
-      <!-- Etiqueta del departamento (posicionada visualmente) -->
       <text 
         x={(dpt.d.match(/M (\d+),/)[1]) * 1 + 50} 
         y={(dpt.d.match(/M \d+,(\d+)/)[1]) * 1 + 50} 
@@ -79,7 +101,7 @@
 
   {#if selectedDept}
     <div class="absolute right-0 top-0 h-full w-80 bg-slate-800/95 backdrop-blur-md shadow-2xl p-6 overflow-y-auto border-l border-slate-700" in:fly={{ x: 300 }} out:fade>
-      <button class="mb-4 text-slate-400 hover:text-rose-500 font-bold" on:click={() => { selectedDept = null; mapStyle = "transform: scale(1);"; }}>✕ Cerrar</button>
+      <button class="mb-4 text-slate-400 hover:text-rose-500 font-bold" onclick={() => { selectedDept = null; mapStyle = "transform: scale(1);"; }}>✕ Cerrar</button>
       <h2 class="text-2xl font-black text-white">{selectedDept.name}</h2>
       <p class="text-xs font-bold text-slate-400 uppercase tracking-tighter mb-6">{dataMode} MODE</p>
       

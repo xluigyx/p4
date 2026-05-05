@@ -8,6 +8,14 @@ services:
       POSTGRES_PASSWORD: bolivia_vota
     ports:
       - "5434:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rrv_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - antigravity_net
 
@@ -22,6 +30,12 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5433:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d oficial_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - antigravity_net
 
@@ -34,8 +48,10 @@ services:
     volumes:
       - ../backend/ingest:/app/ingest # Aquí van los PDFs y CSVs
     depends_on:
-      - db_oficial
-      - db_rapido
+      db_oficial:
+        condition: service_healthy
+      db_rapido:
+        condition: service_healthy
     networks:
       - antigravity_net
 
