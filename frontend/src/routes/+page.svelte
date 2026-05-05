@@ -1,19 +1,16 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { gsap } from 'gsap';
+  import { invalidateAll } from '$app/navigation';
   import BoliviaMap from '$lib/BoliviaMap.svelte';
 
-  export let data;
-  export let params;
+  let { data, params } = $props();
 
-  let modo = 'RRV'; // Switch: RRV o OFICIAL
-  let logs = []; 
+  let modo = $state('RRV'); // Switch: RRV o OFICIAL
+  let logs = $state([]); 
   
-  // Health checks
-  let health = {
-    db_rapido: 'ONLINE',
-    db_oficial: 'ONLINE'
-  };
+  // Health checks using data from +page.server.js
+  let health = $derived(data.health || { db_rapido: 'ONLINE', db_oficial: 'ONLINE' });
   let healthInterval;
 
   // Simulated votes for demonstration
@@ -41,26 +38,24 @@
     'TJ': { Tyrion: 105, Daenerys: 105, Robert: 510, Sansa: 210 }
   };
 
-  $: currentVotes = modo === 'RRV' ? mockVotesRRV : mockVotesOficial;
+  let currentVotes = $derived(modo === 'RRV' ? mockVotesRRV : mockVotesOficial);
 
   function toggleModo() {
     modo = modo === 'RRV' ? 'OFICIAL' : 'RRV';
     gsap.to(".map-container", { duration: 0.5, filter: "hue-rotate(90deg)", yoyo: true, repeat: 1 });
   }
 
-  function simulateHealthCheck() {
-    // Simulando estado de base de datos
-    health.db_rapido = Math.random() > 0.95 ? 'OFFLINE' : 'ONLINE';
-    health.db_oficial = Math.random() > 0.98 ? 'OFFLINE' : 'ONLINE';
-  }
-
   onMount(() => {
     gsap.from(".card", { stagger: 0.2, opacity: 0, y: 20 });
-    healthInterval = setInterval(simulateHealthCheck, 3000);
+    
+    // Poll updates by forcing SvelteKit to re-run load() in +page.server.js
+    healthInterval = setInterval(() => {
+      invalidateAll();
+    }, 3000);
   });
   
   onDestroy(() => {
-    clearInterval(healthInterval);
+    if (healthInterval) clearInterval(healthInterval);
   });
 </script>
 
@@ -84,7 +79,7 @@
       </div>
     </div>
     
-    <button on:click={toggleModo} class="bg-blue-600 px-6 py-2 rounded-full font-bold hover:bg-blue-500 transition shadow-[0_0_15px_rgba(37,99,235,0.5)]">
+    <button onclick={toggleModo} class="bg-blue-600 px-6 py-2 rounded-full font-bold hover:bg-blue-500 transition shadow-[0_0_15px_rgba(37,99,235,0.5)]">
       CAMBIAR A {modo === 'RRV' ? 'OFICIAL' : 'RRV'}
     </button>
   </div>

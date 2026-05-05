@@ -46,7 +46,7 @@ services:
       - DB_OFICIAL=postgresql://postgres:bolivia_vota@db_oficial:5432/oficial_db
       - DB_RAPIDO=postgresql://postgres:bolivia_vota@db_rapido:5432/rrv_db
     volumes:
-      - ../backend/ingest:/app/ingest # Aquí van los PDFs y CSVs
+      - ../backend/ingest:/app/ingest:ro # MAPEO DE LECTURA (Evita Error Invalid cross-device link)
     depends_on:
       db_oficial:
         condition: service_healthy
