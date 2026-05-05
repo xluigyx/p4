@@ -17,7 +17,9 @@ def bot_worker(bot_id, folder_path):
             resultado = ocr.validar_acta(full_path)
             
             # Mover a procesados para liberar la carpeta
-            os.rename(full_path, f"backend/processed/{archivo}")
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            processed_dir = os.path.join(base_dir, "processed", archivo)
+            os.rename(full_path, processed_dir)
             
             # LOGS PARA EL FRONTEND (Aquí enviarías al WebSocket)
             if resultado["status"] == "OBSERVADA":
@@ -27,6 +29,9 @@ def bot_worker(bot_id, folder_path):
 
 if __name__ == "__main__":
     # Levanta bots según tus núcleos (puedes forzar 4 o 8)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    ingest_dir = os.path.join(base_dir, "ingest", "pdf_actas")
+    
     for i in range(multiprocessing.cpu_count()):
-        p = multiprocessing.Process(target=bot_worker, args=(i, "backend/ingest/pdf_actas"))
+        p = multiprocessing.Process(target=bot_worker, args=(i, ingest_dir))
         p.start()
