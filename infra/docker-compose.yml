@@ -1,65 +1,61 @@
 services:
-  db-primary:
-    image: bitnami/postgresql:16
+  # CLÚSTER A: Cómputo Oficial (Consistencia Fuerte)
+  db_oficial:
+    image: postgres:16-alpine
+    container_name: db_oficial
     environment:
-      - POSTGRESQL_REPLICATION_MODE=master
-      - POSTGRESQL_REPLICATION_USER=repl_user
-      - POSTGRESQL_REPLICATION_PASSWORD=repl_pass
-      - POSTGRESQL_USERNAME=postgres
-      - POSTGRESQL_PASSWORD=admin
-      - POSTGRESQL_DATABASE=elections_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - pg_primary_data:/bitnami/postgresql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d elections_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  db-replica:
-    image: bitnami/postgresql:16
-    environment:
-      - POSTGRESQL_REPLICATION_MODE=slave
-      - POSTGRESQL_REPLICATION_USER=repl_user
-      - POSTGRESQL_REPLICATION_PASSWORD=repl_pass
-      - POSTGRESQL_MASTER_HOST=db-primary
-      - POSTGRESQL_PASSWORD=admin
-    depends_on:
-      db-primary:
-        condition: service_healthy
+      - POSTGRES_USER=antigravity
+      - POSTGRES_PASSWORD=bolivia_vota
+      - POSTGRES_DB=electoral_db
     ports:
       - "5433:5432"
     volumes:
-      - pg_replica_data:/bitnami/postgresql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Carga automática de las 4 hojas
+    restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d elections_db"]
+      test: ["CMD-SHELL", "pg_isready -U antigravity -d electoral_db"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
+  # CLÚSTER B: Recuento Rápido / RRV (Baja Latencia)
+  db_rapido:
+    image: postgres:16-alpine
+    container_name: db_rapido
+    environment:
+      - POSTGRES_USER=antigravity
+      - POSTGRES_PASSWORD=bolivia_vota
+      - POSTGRES_DB=rrv_db
     ports:
-      - "6379:6379"
+      - "5434:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U antigravity -d rrv_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis_queue:
+    image: redis:7-alpine
+    container_name: redis_queue
 
   backend-api:
     build: ../backend
+    container_name: backend_api
     command: uvicorn main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     environment:
-      - DB_HOST=db-primary
-      - DB_REPLICA_HOST=db-replica
-      - DB_USER=postgres
-      - DB_PASS=admin
-      - DB_NAME=elections_db
+      - DB_HOST=db_oficial
+      - DB_REPLICA_HOST=db_rapido
+      - DB_USER=antigravity
+      - DB_PASS=bolivia_vota
+      - DB_NAME=electoral_db
+      - DB_NAME_RRV=rrv_db
     depends_on:
-      db-primary:
+      db_oficial:
         condition: service_healthy
-      redis:
+      redis_queue:
         condition: service_started
     volumes:
       - ../backend:/app
@@ -67,13 +63,10 @@ services:
 
   frontend-svelte:
     image: node:20-alpine
+    container_name: frontend_svelte
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:
       - "5173:5173"
     volumes:
       - ../frontend:/app
-
-volumes:
-  pg_primary_data:
-  pg_replica_data:

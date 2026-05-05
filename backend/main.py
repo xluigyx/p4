@@ -9,17 +9,17 @@ import asyncio
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-INGEST_DIR = "/app/ingest"
-redis_client = redis.Redis(host='redis', port=6379, db=0)
+INGEST_DIR_RRV = "/app/ingest/rrv"
+redis_client = redis.Redis(host='redis_queue', port=6379, db=0)
 
 @app.on_event("startup")
 async def startup_event():
-    os.makedirs(INGEST_DIR, exist_ok=True)
+    os.makedirs(INGEST_DIR_RRV, exist_ok=True)
 
 @app.post("/api/upload")
 async def upload_acta(file: UploadFile = File(...)):
     """ Endpoint para la app móvil """
-    file_path = os.path.join(INGEST_DIR, file.filename)
+    file_path = os.path.join(INGEST_DIR_RRV, file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     return {"message": "Acta encolada exitosamente", "filename": file.filename}

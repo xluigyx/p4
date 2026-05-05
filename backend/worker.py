@@ -10,21 +10,22 @@ import csv
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(processName)s] - %(message)s')
 
-redis_client = redis.Redis(host='redis', port=6379, db=0, decode_responses=True)
+redis_client = redis.Redis(host='redis_queue', port=6379, db=0, decode_responses=True)
 
 def get_db_connection():
     # Intenta conectar al primario, si falla, va al replica (Failover manual simple)
-    host = os.environ.get("DB_HOST", "db-primary")
-    replica_host = os.environ.get("DB_REPLICA_HOST", "db-replica")
-    user = os.environ.get("DB_USER", "postgres")
-    password = os.environ.get("DB_PASS", "admin")
-    dbname = os.environ.get("DB_NAME", "elections_db")
+    host = os.environ.get("DB_HOST", "db_oficial")
+    replica_host = os.environ.get("DB_REPLICA_HOST", "db_rapido")
+    user = os.environ.get("DB_USER", "antigravity")
+    password = os.environ.get("DB_PASS", "bolivia_vota")
+    dbname = os.environ.get("DB_NAME", "electoral_db")
+    dbname_rrv = os.environ.get("DB_NAME_RRV", "rrv_db")
     
     try:
         return psycopg2.connect(host=host, user=user, password=password, dbname=dbname, connect_timeout=3)
     except psycopg2.OperationalError as e:
-        logging.warning(f"Primary DB failed, failing over to replica {replica_host}: {e}")
-        return psycopg2.connect(host=replica_host, user=user, password=password, dbname=dbname, connect_timeout=3)
+        logging.warning(f"Primary DB failed, failing over to replica {replica_host} with DB {dbname_rrv}: {e}")
+        return psycopg2.connect(host=replica_host, user=user, password=password, dbname=dbname_rrv, connect_timeout=3)
 
 def process_csv(file_path):
     try:
@@ -41,7 +42,7 @@ def bot_worker(worker_id):
     
     while True:
         try:
-            # Vigila la cola de Redis (bloqueante por 2 segundos para permitir graceful shutdown si se desea)
+            # Vigila la cola de Redis (bloqueante por 2 segundos)
             task = redis_client.brpop(['queue:oficial', 'queue:rrv'], timeout=2)
             if not task:
                 continue
@@ -57,13 +58,14 @@ def bot_worker(worker_id):
             logger.info(f"Processing task from {queue_name}: {file_path}")
             
             is_oficial = queue_name == 'queue:oficial'
+            fuente = "CSV" if is_oficial else "OCR"
             
             if is_oficial:
                 data = process_csv(file_path)
                 if not data:
                     logger.warning(f"Failed to read CSV: {file_path}")
                     continue
-                status = "VALIDADA"
+                status = "VALIDA"
                 errors = []
                 codigo_mesa = data.get('codigo_mesa', 'DESCONOCIDA')
             else:
@@ -72,7 +74,7 @@ def bot_worker(worker_id):
                     logger.warning(f"Failed to read OCR: {file_path}")
                     continue
                 
-                status = data.get("estado_validacion", "VALIDADA")
+                status = "VALIDA" if data.get("estado_validacion", "VALIDADA") == "VALIDADA" else "OBSERVADA"
                 errors = []
                 if status == "OBSERVADA":
                     errors.append(data.get("mensaje_error", "Error desconocido"))
@@ -86,19 +88,20 @@ def bot_worker(worker_id):
             redis_client.publish('dashboard_updates', json.dumps({
                 "type": "ocr_log",
                 "mesa": codigo_mesa,
-                "status": status,
+                "status": "VALIDADA" if status == "VALIDA" else "OBSERVADA",
                 "errors": errors,
                 "worker": worker_id,
-                "source": "OFICIAL" if is_oficial else "RRV"
+                "source": fuente
             }))
             
             # Escribir en Event Sourcing DB
             try:
                 conn = get_db_connection()
                 cursor = conn.cursor()
+                motivo = ", ".join(errors) if errors else None
                 cursor.execute(
-                    "INSERT INTO acta_events (acta_id, event_type, payload) VALUES (%s, %s, %s)",
-                    (codigo_mesa, f"{status}_{'OFICIAL' if is_oficial else 'RRV'}", json.dumps(data))
+                    "INSERT INTO eventos_actas (codigo_acta, fuente, datos_json, estado, motivo_observacion) VALUES (%s, %s, %s, %s, %s)",
+                    (codigo_mesa, fuente, json.dumps(data), status, motivo)
                 )
                 conn.commit()
                 cursor.close()
@@ -116,18 +119,14 @@ def orchestrator():
     os.makedirs("/app/ingest/oficial", exist_ok=True)
     os.makedirs("/app/ingest/rrv", exist_ok=True)
     
-    # Orquestador simple que simula inyectar tareas a Redis leyendo directorios
-    # En un caso real, otro microservicio subiría los archivos y empujaría a la cola
     while True:
         try:
             for q_type, d_path in [('queue:oficial', '/app/ingest/oficial'), ('queue:rrv', '/app/ingest/rrv')]:
                 for f in os.listdir(d_path):
                     f_path = os.path.join(d_path, f)
-                    if os.path.isfile(f_path):
-                        # Evita procesar archivos vacíos temporalmente
+                    if os.path.isfile(f_path) and not f.endswith('.processing'):
                         if os.path.getsize(f_path) > 0:
                             redis_client.lpush(q_type, json.dumps({"file_path": f_path}))
-                            # Renombra para no re-procesar (simulación)
                             os.rename(f_path, f_path + ".processing")
         except Exception as e:
             logging.error(f"Orchestrator error: {e}")
@@ -139,12 +138,10 @@ if __name__ == "__main__":
     
     processes = []
     
-    # Arranca el thread/proceso orquestador (simulador de ingesta)
     p_orch = multiprocessing.Process(target=orchestrator, name="Orchestrator")
     p_orch.start()
     processes.append(p_orch)
     
-    # Arranca bots
     for i in range(cores):
         p = multiprocessing.Process(target=bot_worker, args=(i,), name=f"Bot-{i}")
         p.start()
