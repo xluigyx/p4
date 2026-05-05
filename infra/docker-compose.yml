@@ -1,72 +1,56 @@
 services:
-  # CLÚSTER A: Cómputo Oficial (Consistencia Fuerte)
-  db_oficial:
-    image: postgres:16-alpine
-    container_name: db_oficial
-    environment:
-      - POSTGRES_USER=antigravity
-      - POSTGRES_PASSWORD=bolivia_vota
-      - POSTGRES_DB=electoral_db
-    ports:
-      - "5433:5432"
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Carga automática de las 4 hojas
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U antigravity -d electoral_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # CLÚSTER B: Recuento Rápido / RRV (Baja Latencia)
+  # CLÚSTER RRV (MongoDB/Postgres para velocidad)
   db_rapido:
     image: postgres:16-alpine
     container_name: db_rapido
     environment:
-      - POSTGRES_USER=antigravity
-      - POSTGRES_PASSWORD=bolivia_vota
-      - POSTGRES_DB=rrv_db
+      POSTGRES_DB: rrv_db
+      POSTGRES_PASSWORD: bolivia_vota
     ports:
       - "5434:5432"
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U antigravity -d rrv_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    networks:
+      - antigravity_net
 
-  redis_queue:
-    image: redis:7-alpine
-    container_name: redis_queue
-
-  backend-api:
-    build: ../backend
-    container_name: backend_api
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
-    ports:
-      - "8000:8000"
+  # CLÚSTER OFICIAL (Postgres para consistencia)
+  db_oficial:
+    image: postgres:16-alpine
+    container_name: db_oficial
     environment:
-      - DB_HOST=db_oficial
-      - DB_REPLICA_HOST=db_rapido
-      - DB_USER=antigravity
-      - DB_PASS=bolivia_vota
-      - DB_NAME=electoral_db
-      - DB_NAME_RRV=rrv_db
-    depends_on:
-      db_oficial:
-        condition: service_healthy
-      redis_queue:
-        condition: service_started
+      POSTGRES_DB: oficial_db
+      POSTGRES_PASSWORD: bolivia_vota
     volumes:
-      - ../backend:/app
-      - ../data/ingest:/app/ingest
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    networks:
+      - antigravity_net
 
-  frontend-svelte:
-    image: node:20-alpine
-    container_name: frontend_svelte
-    working_dir: /app
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+  # BACKEND (Orquestador de Bots)
+  backend:
+    build: ../backend
+    environment:
+      - DB_OFICIAL=postgresql://postgres:bolivia_vota@db_oficial:5432/oficial_db
+      - DB_RAPIDO=postgresql://postgres:bolivia_vota@db_rapido:5432/rrv_db
+    volumes:
+      - ../backend/ingest:/app/ingest # Aquí van los PDFs y CSVs
+    depends_on:
+      - db_oficial
+      - db_rapido
+    networks:
+      - antigravity_net
+
+  # FRONTEND (SvelteKit Dashboard)
+  frontend:
+    build: ../frontend
     ports:
       - "5173:5173"
-    volumes:
-      - ../frontend:/app
+    environment:
+      - VITE_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - antigravity_net
+
+networks:
+  antigravity_net:
+    driver: bridge

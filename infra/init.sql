@@ -1,19 +1,14 @@
--- Tablas Maestras (Distribución y Recintos)
-CREATE TABLE recintos (
-    codigo_recinto TEXT PRIMARY KEY,
-    nombre TEXT,
-    municipio TEXT,
-    departamento TEXT,
-    num_mesas INT
-);
+-- Tablas maestras basadas en el Excel
+CREATE TABLE distribucion (depto TEXT, provincia TEXT, municipio TEXT);
+CREATE TABLE recintos (codigo_recinto TEXT PRIMARY KEY, nombre TEXT, direccion TEXT);
+CREATE TABLE actas_impresas (codigo_acta TEXT PRIMARY KEY, habilitados INT, nro_mesa INT);
 
--- Event Sourcing: Log de ráfaga de actas para los Bots
-CREATE TABLE eventos_actas (
+-- Registro de eventos (Event Sourcing) para auditoría
+CREATE TABLE logs_procesamiento (
     id SERIAL PRIMARY KEY,
     codigo_acta TEXT,
-    fuente TEXT, -- 'OCR', 'SMS', 'CSV'
-    datos_json JSONB,
-    estado TEXT DEFAULT 'PROCESANDO', -- 'VALIDA', 'OBSERVADA'
-    motivo_observacion TEXT,
+    fuente TEXT, -- 'OCR' o 'CSV'
+    estado TEXT, -- 'ACEPTADA', 'RECHAZADA'
+    motivo_rechazo TEXT, -- 'MANCHADA', 'ROTA', 'ERROR_SUMA'
     creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
