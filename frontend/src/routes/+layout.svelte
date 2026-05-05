@@ -1,5 +1,7 @@
 <script>
     import '../app.css';
+    export let data;
+    export let params;
 </script>
 
 <div class="min-h-screen bg-slate-900 text-white font-sans overflow-hidden">
