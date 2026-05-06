@@ -83,10 +83,12 @@ def bot_worker(bot_id, folder_path):
                     cursor = conn.cursor()
                     codigo_acta = resultado.get("codigo_acta", archivo)
                     
-                    cursor.execute(
-                        "INSERT INTO Transcripciones (codigo_acta, candidato, votos) VALUES (%s, %s, %s)",
-                        (codigo_acta, 'Total_Validos', suma)
-                    )
+                    # Inject P1 to P4
+                    for cand, cand_votos in [('P1', p1), ('P2', p2), ('P3', p3), ('P4', p4)]:
+                        cursor.execute(
+                            "INSERT INTO Transcripciones (codigo_acta, candidato, votos) VALUES (%s, %s, %s)",
+                            (codigo_acta, cand, cand_votos)
+                        )
                     conn.commit()
                     cursor.close()
                     conn.close()
