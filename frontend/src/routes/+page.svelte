@@ -249,7 +249,16 @@
                      </span>
                    </div>
                  </td>
-                 <td class="px-6 py-4 font-mono text-xs {log.status === 'OBSERVADO' ? 'text-orange-400' : 'text-slate-500'}">{log.reason}</td>
+                 <td class="px-6 py-4 font-mono text-xs {log.status === 'OBSERVADO' ? 'text-orange-400' : 'text-slate-500'}">
+                   {#if log.reason && log.reason.includes('Daño físico severo')}
+                     <span class="inline-flex items-center gap-1 px-2 py-1 bg-rose-600 text-white rounded font-bold animate-pulse">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                        DAÑO FÍSICO SEVERO
+                     </span>
+                   {:else}
+                     {log.reason}
+                   {/if}
+                 </td>
                </tr>
              {/each}
            </tbody>
@@ -305,7 +314,7 @@
             <span class="text-sm font-bold text-slate-400">5396</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-purple-500 h-full rounded-full transition-all duration-1000" style="width: 100%"></div>
+            <div class="bg-[#FFD700] h-full rounded-full transition-all duration-1000" style="width: 100%"></div>
           </div>
         </div>
         
@@ -315,7 +324,7 @@
             <span class="text-sm font-bold text-slate-400">{processed} / 5396</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-blue-500 h-full rounded-full transition-all duration-1000" style="width: {Math.min((processed/5396)*100, 100)}%"></div>
+            <div class="bg-[#E11D48] h-full rounded-full transition-all duration-1000" style="width: {Math.min((processed/5396)*100, 100)}%"></div>
           </div>
         </div>
         <div>
@@ -324,7 +333,7 @@
             <span class="text-sm font-bold text-slate-400">{(processed * 0.95).toFixed(0)}</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-emerald-500 h-full rounded-full transition-all duration-1000" style="width: {Math.min(((processed * 0.95)/5396)*100, 100)}%"></div>
+            <div class="bg-[#FACC15] h-full rounded-full transition-all duration-1000" style="width: {Math.min(((processed * 0.95)/5396)*100, 100)}%"></div>
           </div>
         </div>
         <div>
@@ -333,7 +342,7 @@
             <span class="text-sm font-bold text-slate-400">{5396 - processed}</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-rose-500 h-full rounded-full transition-all duration-1000" style="width: {Math.min(((5396 - processed)/5396)*100, 100)}%"></div>
+            <div class="bg-[#94A3B8] h-full rounded-full transition-all duration-1000" style="width: {Math.min(((5396 - processed)/5396)*100, 100)}%"></div>
           </div>
         </div>
       </div>

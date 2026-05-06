@@ -3,6 +3,7 @@ import os
 import time
 import pandas as pd
 import psycopg2
+import psycopg2.errors
 from sqlalchemy import create_engine
 from ocr_engine import ElectoralOCR
 
@@ -51,7 +52,17 @@ def load_excel_data():
         if not df_trans.empty:
             db_mongo["transcripciones"].insert_many(df_trans.to_dict('records'))
         df_trans.to_sql('transcripciones', engine_rapido, if_exists='append', index=False)
-        print("✅ Transcripciones cargadas")
+        
+        # Crear constraint única estática al inicio
+        conn_pg = psycopg2.connect(db_url_rapido)
+        cur_pg = conn_pg.cursor()
+        cur_pg.execute("ALTER TABLE transcripciones DROP CONSTRAINT IF EXISTS unique_acta_candidato")
+        cur_pg.execute("ALTER TABLE transcripciones ADD CONSTRAINT unique_acta_candidato UNIQUE (codigo_acta, candidato)")
+        conn_pg.commit()
+        cur_pg.close()
+        conn_pg.close()
+        
+        print("✅ Transcripciones cargadas e indexadas estáticamente (CONSTRAINT UNIQUE)")
         
         print("🎉 Carga inicial completada para ambos clústeres.")
     except Exception as e:
@@ -89,26 +100,55 @@ def bot_worker(bot_id, folder_path):
                     print(f"✅ Acta {archivo} validada aritméticamente ({suma} votos).")
                     
                     # Transfer data to RRV cluster using psycopg2
-                    conn = psycopg2.connect(db_url_rapido)
-                    cursor = conn.cursor()
-                    codigo_acta = resultado.get("codigo_acta", archivo)
+                    raw_codigo = resultado.get("codigo_acta", archivo)
+                    # Limpieza de ID
+                    codigo_acta = raw_codigo.lower().replace("acta_", "").replace(".pdf", "").replace(".png", "").replace(".jpg", "")
                     
-                    # Asegurar índice único en PostgreSQL
-                    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_transcripciones_acta_cand ON transcripciones (codigo_acta, candidato)")
+                    max_retries = 2 # Intentar una vez extra
                     
-                    # Inject Lannister to Stark
-                    for cand, cand_votos in [('Lannister', p1), ('Targaryen', p2), ('Baratheon', p3), ('Stark', p4)]:
-                        cursor.execute(
-                            "INSERT INTO transcripciones (codigo_acta, candidato, votos) VALUES (%s, %s, %s) ON CONFLICT (codigo_acta, candidato) DO NOTHING",
-                            (codigo_acta, cand, cand_votos)
-                        )
-                    conn.commit()
-                    cursor.close()
-                    conn.close()
+                    for attempt in range(max_retries):
+                        conn = None
+                        try:
+                            conn = psycopg2.connect(db_url_rapido)
+                            cursor = conn.cursor()
+                            
+                            # Inject Lannister to Stark
+                            for cand, cand_votos in [('Lannister', p1), ('Targaryen', p2), ('Baratheon', p3), ('Stark', p4)]:
+                                cursor.execute(
+                                    "INSERT INTO transcripciones (codigo_acta, candidato, votos) VALUES (%s, %s, %s) ON CONFLICT (codigo_acta, candidato) DO NOTHING",
+                                    (codigo_acta, cand, cand_votos)
+                                )
+                                time.sleep(0.1) # Reducir la presión sobre la base de datos
+                                
+                            conn.commit()
+                            cursor.close()
+                            break # Exito, salir del bucle de reintentos
+                            
+                        except psycopg2.errors.DeadlockDetected:
+                            if conn is not None:
+                                conn.rollback()
+                            print(f"⚠️ Deadlock detectado en {archivo}. Esperando 0.5 segundos para reintentar ({attempt+1}/{max_retries})...")
+                            time.sleep(0.5)
+                            
+                        except psycopg2.errors.ForeignKeyViolation as fk_err:
+                            if conn is not None:
+                                conn.rollback()
+                            print(f"⚠️ Ignorando acta no oficial (Llave Foránea) - {codigo_acta}: {fk_err.pgerror}")
+                            break # Continuar sin reintentar ni fallar por completo
+                            
+                        except Exception as e:
+                            if conn is not None:
+                                conn.rollback()
+                            print(f"❌ Error DB en {archivo}: {e}")
+                            break
+                            
+                        finally:
+                            if conn is not None:
+                                conn.close()
                 else:
                     print(f"❌ Error aritmético en {archivo}: {suma} != {votos_validos}")
                     
-                if resultado.get("status") in ["OBSERVADA", "ANULABLE"]:
+                if resultado.get("status") in ["OBSERVADA", "ANULABLE", "MANCHA_CRITICA"]:
                     print(f"❌ ALERTA OCR: {archivo} - {resultado.get('motivo')}")
                     # Enviar estado a la Bitácora de Svelte (MongoDB)
                     db_url_oficial = os.environ.get("DB_OFICIAL", "mongodb://db_oficial:27017/oficial_db")
