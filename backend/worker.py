@@ -9,64 +9,67 @@ from ocr_engine import ElectoralOCR
 
 import pymongo
 
-def load_excel_data():
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    excel_path = os.path.join(base_dir, "data", "ingest", "_Recursos Practica 4.xlsx")
+def load_master_data():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    excel_path = os.path.join(base_dir, "_Recursos Practica 4.xlsx")
+    csv_dir = os.path.join(base_dir, "ingest", "csv_oficial")
     
-    if not os.path.exists(excel_path):
-        print(f"⚠️ No se encontró el Excel en {excel_path}")
-        return
-
     db_url_oficial = os.environ.get("DB_OFICIAL", "mongodb://db_oficial:27017/oficial_db")
     db_url_rapido = os.environ.get("DB_RAPIDO", "postgresql://postgres:bolivia_vota@db_rapido:5432/rrv_db")
     
-    # MongoDB Connection for Oficial
     client = pymongo.MongoClient(db_url_oficial)
     db_mongo = client.get_database()
-
-    # PostgreSQL Connection for RRV
     engine_rapido = create_engine(db_url_rapido)
+
+    print("📊 Iniciando carga de Catálogo Maestro...")
     
     try:
-        print("📊 Cargando datos del Excel a la BD Oficial (MongoDB) y RRV (PostgreSQL)...")
-        
-        df_dist = pd.read_excel(excel_path, sheet_name="DistribucionTerritorial")
-        if not df_dist.empty:
-            db_mongo["distribucionterritorial"].insert_many(df_dist.to_dict('records'))
-        df_dist.to_sql('distribucionterritorial', engine_rapido, if_exists='append', index=False)
-        print("✅ DistribucionTerritorial cargada")
-        
-        df_recintos = pd.read_excel(excel_path, sheet_name="RecintosElectorales")
-        if not df_recintos.empty:
-            db_mongo["recintoselectorales"].insert_many(df_recintos.to_dict('records'))
-        df_recintos.to_sql('recintoselectorales', engine_rapido, if_exists='append', index=False)
-        print("✅ RecintosElectorales cargados")
-        
-        df_actas = pd.read_excel(excel_path, sheet_name="ActasImpresas")
-        if not df_actas.empty:
-            db_mongo["actasimpresas"].insert_many(df_actas.to_dict('records'))
-        df_actas.to_sql('actasimpresas', engine_rapido, if_exists='append', index=False)
-        print(f"✅ ActasImpresas cargadas: {len(df_actas)} actas procesadas.")
-        
-        df_trans = pd.read_excel(excel_path, sheet_name="Transcripciones")
-        if not df_trans.empty:
-            db_mongo["transcripciones"].insert_many(df_trans.to_dict('records'))
-        df_trans.to_sql('transcripciones', engine_rapido, if_exists='append', index=False)
-        
-        # Crear constraint única estática al inicio
+        # Intentar cargar desde CSVs si el Excel no existe
+        if not os.path.exists(excel_path):
+            print(f"ℹ️ Excel no detectado. Buscando CSVs de infraestructura en {csv_dir}...")
+            
+            # 1. DistribucionTerritorial
+            dt_path = os.path.join(csv_dir, "Recursos Practica 4 - DistribucionTerritorial.csv")
+            if os.path.exists(dt_path):
+                df = pd.read_csv(dt_path)
+                df.to_sql('distribucionterritorial', engine_rapido, if_exists='append', index=False)
+                print("✅ DistribucionTerritorial (CSV) -> Postgres")
+
+            # 2. RecintosElectorales
+            re_path = os.path.join(csv_dir, "Recursos Practica 4 - RecintosElectorales.csv")
+            if os.path.exists(re_path):
+                df = pd.read_csv(re_path)
+                df.to_sql('recintoselectorales', engine_rapido, if_exists='append', index=False)
+                print("✅ RecintosElectorales (CSV) -> Postgres")
+
+            # 3. ActasImpresas
+            ai_path = os.path.join(csv_dir, "Recursos Practica 4 - ActasImpresas.csv")
+            if os.path.exists(ai_path):
+                df = pd.read_csv(ai_path)
+                df.to_sql('actasimpresas', engine_rapido, if_exists='append', index=False)
+                print(f"✅ ActasImpresas (CSV) -> Postgres ({len(df)} actas)")
+        else:
+            # Lógica original de Excel (abreviada)
+            df_dist = pd.read_excel(excel_path, sheet_name="DistribucionTerritorial")
+            df_dist.to_sql('distribucionterritorial', engine_rapido, if_exists='append', index=False)
+            df_recintos = pd.read_excel(excel_path, sheet_name="RecintosElectorales")
+            df_recintos.to_sql('recintoselectorales', engine_rapido, if_exists='append', index=False)
+            df_actas = pd.read_excel(excel_path, sheet_name="ActasImpresas")
+            df_actas.to_sql('actasimpresas', engine_rapido, if_exists='append', index=False)
+            print("✅ Catálogo maestro cargado desde Excel.")
+
+        # Garantizar Constraint Única
         conn_pg = psycopg2.connect(db_url_rapido)
         cur_pg = conn_pg.cursor()
-        cur_pg.execute("ALTER TABLE transcripciones DROP CONSTRAINT IF EXISTS unique_acta_candidato")
-        cur_pg.execute("ALTER TABLE transcripciones ADD CONSTRAINT unique_acta_candidato UNIQUE (codigo_acta, candidato)")
+        cur_pg.execute("ALTER TABLE transcripciones DROP CONSTRAINT IF EXISTS unique_voto")
+        cur_pg.execute("ALTER TABLE transcripciones ADD CONSTRAINT unique_voto UNIQUE (codigo_acta, candidato)")
         conn_pg.commit()
         cur_pg.close()
         conn_pg.close()
-        
-        print("✅ Transcripciones cargadas e indexadas estáticamente (CONSTRAINT UNIQUE)")
-        
-        print("🎉 Carga inicial completada para ambos clústeres.")
+        print("✅ Restricción 'unique_voto' verificada en Postgres.")
+
     except Exception as e:
-        print(f"❌ Error al cargar Excel: {e}")
+        print(f"⚠️ Error en carga maestra: {e}")
 
 def bot_worker(bot_id, folder_path):
     ocr = ElectoralOCR()
@@ -74,6 +77,25 @@ def bot_worker(bot_id, folder_path):
     
     processed_files = set()
     db_url_rapido = os.environ.get("DB_RAPIDO", "postgresql://postgres:bolivia_vota@db_rapido:5432/rrv_db")
+    
+    # 1. Sincronización: Esperar a que el catálogo maestro esté listo
+    while True:
+        try:
+            conn_sync = psycopg2.connect(db_url_rapido)
+            cursor_sync = conn_sync.cursor()
+            cursor_sync.execute("SELECT COUNT(*) FROM actasimpresas")
+            count = cursor_sync.fetchone()[0]
+            cursor_sync.close()
+            conn_sync.close()
+            if count >= 5396:
+                print(f"✅ Bot-{bot_id}: Catálogo maestro detectado ({count} actas). Iniciando procesamiento OCR.")
+                break
+            else:
+                print(f"⏳ Bot-{bot_id}: Esperando poblamiento del catálogo maestro (actasimpresas)...")
+                time.sleep(5)
+        except Exception as e:
+            print(f"⏳ Bot-{bot_id}: Esperando base de datos RRV... {e}")
+            time.sleep(5)
     
     while True:
         if not os.path.exists(folder_path):
@@ -227,7 +249,9 @@ def csv_bot_worker(bot_id, folder_path):
                         db_mongo["actas_oficiales"].insert_many(docs_to_insert, ordered=False)
                     except pymongo.errors.BulkWriteError:
                         pass # Ignore duplicate key errors
-                    print(f"✅ Catálogo {archivo} migrado a MongoDB Oficial ({len(docs_to_insert)} actas intentadas).")
+                    print(f"✅ CSV-Bot: {archivo} migrado exclusivamente a MongoDB Oficial.")
+                
+                
             except Exception as e:
                 print(f"⚠️ Error al procesar CSV {archivo}: {e}")
             
@@ -236,11 +260,11 @@ def csv_bot_worker(bot_id, folder_path):
         time.sleep(2)
 
 if __name__ == "__main__":
-    load_excel_data()
+    load_master_data()
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     ingest_dir_pdf = os.path.join(base_dir, "ingest", "pdf_actas")
-    ingest_dir_csv = os.path.join(base_dir, "ingest", "csv_actas")
+    ingest_dir_csv = os.path.join(base_dir, "ingest", "csv_oficial")
     
     # Un bot para CSV
     p_csv = multiprocessing.Process(target=csv_bot_worker, args=(99, ingest_dir_csv))

@@ -28,6 +28,10 @@ CREATE TABLE Transcripciones (
     creado_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Esto crea la restricción de unicidad que el bot necesita para el ON CONFLICT
+ALTER TABLE Transcripciones 
+ADD CONSTRAINT unique_voto UNIQUE (codigo_acta, candidato);
+
 -- Tabla de logs para registrar ráfagas de bots
 CREATE TABLE logs_auditoria (
     id SERIAL PRIMARY KEY,
