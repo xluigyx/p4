@@ -43,37 +43,17 @@
 
   let currentVotes = $derived(modo === 'RRV' ? mockVotesRRV : mockVotesOficial);
 
-  let logs = $derived(data.logs && data.logs.length > 0 ? data.logs : Array.from({length: 5}).map((_, i) => ({
-      id: `ACT-${String(i+1).padStart(4, '0')}`,
-      time: `10:00:00`,
-      source: 'PDF',
-      link: '#',
-      status: 'ESPERANDO DATOS',
-      reason: '-'
-    })));
+  let logs = $derived(data.logs && data.logs.length > 0 ? data.logs : []);
 
-  let displayLogs = $derived(logs.filter(log => log.source === 'PDF'));
-
-  $effect(() => {
-    if (displayLogs.some(l => l.status === 'ESPERANDO DATOS')) {
-      const timer = setTimeout(() => invalidateAll(), 1000);
-      return () => clearTimeout(timer);
-    }
-  });
+  let displayLogs = $derived(logs);
 
   let totalVotes = $derived.by(() => {
     let totals = { Lannister: 0, Targaryen: 0, Baratheon: 0, Stark: 0 };
-    for (let dept in currentVotes) {
-      for (let cand in currentVotes[dept]) {
-        if (totals[cand] !== undefined) {
-          totals[cand] += currentVotes[dept][cand];
-        }
-      }
-    }
-    return totals;
+    const src = modo === 'RRV' ? data.rrv.candidatos : data.oficial.candidatos;
+    return src;
   });
 
-  let processed = $derived(Object.values(totalVotes).reduce((a,b) => a+b, 0));
+  let processed = $derived(data.actasRecibidas || 0);
   let maxVotes = $derived(Math.max(...Object.values(totalVotes), 1));
 
   function toggleModo() {
@@ -150,7 +130,7 @@
          Fuente de Datos: <span class="text-[#FFD700]">{modo}</span>
       </div>
       <div class="w-full h-full pt-12 relative z-0">
-         <BoliviaMap resultsByDept={currentVotes} dataMode={modo} />
+         <BoliviaMap resultsByDept={data.rrv.candidatos} dataMode={modo} />
       </div>
     </div>
   </div>
@@ -161,7 +141,11 @@
      <div class="p-10 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5">
        <div class="flex justify-between items-end mb-10 border-b border-white/5 pb-6">
           <h2 class="text-3xl font-black text-slate-100">Comparativa Global</h2>
-          <span class="px-4 py-2 bg-[#0f172a] text-[#FFD700] text-sm font-bold rounded-full border border-white/5">DB SYNC</span>
+          {#if data.desync}
+            <span class="px-4 py-2 bg-rose-500/20 text-rose-500 text-sm font-bold rounded-full border border-rose-500/30 animate-pulse">DESINCRONIZACIÓN DETECTADA</span>
+          {:else}
+            <span class="px-4 py-2 bg-[#0f172a] text-[#FFD700] text-sm font-bold rounded-full border border-white/5">DB SYNC OK</span>
+          {/if}
        </div>
        
        <div class="grid grid-cols-2 gap-12">
@@ -175,7 +159,7 @@
                  <span class="font-mono text-slate-400 text-lg">{votes.toLocaleString()}</span>
                </div>
                <div class="h-4 w-full bg-[#0f172a] rounded-full overflow-hidden border border-white/5 shadow-inner">
-                 <div class="h-full rounded-full transition-all duration-1000 ease-out {cand === 'Baratheon' ? 'border-2 border-black box-border' : ''}" 
+                 <div class="h-full rounded-full transition-all duration-1000 ease-out" 
                       style="width: {data.rrv.total > 0 ? Math.min((votes/data.rrv.total)*100, 100) : 0}%; background-color: {cand === 'Lannister' ? '#FFD700' : cand === 'Targaryen' ? '#E11D48' : cand === 'Baratheon' ? '#FACC15' : '#94A3B8'}">
                  </div>
                </div>
@@ -193,7 +177,7 @@
                  <span class="font-mono text-slate-400 text-lg">{votes.toLocaleString()}</span>
                </div>
                <div class="h-4 w-full bg-[#0f172a] rounded-full overflow-hidden border border-white/5 shadow-inner">
-                 <div class="h-full rounded-full transition-all duration-1000 ease-out {cand === 'Baratheon' ? 'border-2 border-black box-border' : ''}" 
+                 <div class="h-full rounded-full transition-all duration-1000 ease-out" 
                       style="width: {data.oficial.total > 0 ? Math.min((votes/data.oficial.total)*100, 100) : 0}%; background-color: {cand === 'Lannister' ? '#FFD700' : cand === 'Targaryen' ? '#E11D48' : cand === 'Baratheon' ? '#FACC15' : '#94A3B8'}">
                  </div>
                </div>
@@ -209,13 +193,13 @@
   <div class="tab-content">
      <div class="p-8 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 flex flex-col">
        <div class="flex justify-between items-center mb-6 border-b border-white/5 pb-6">
-         <div>
-           <h2 class="text-2xl font-black text-slate-100 font-mono tracking-widest">BITÁCORA TÉCNICA</h2>
-           <p class="text-slate-400 text-sm mt-2 font-mono">Registro inmutable de auditoría procesada.</p>
-         </div>
-         <span class="px-4 py-1.5 bg-[#0f172a] text-[#FFD700] text-sm font-bold rounded-full border border-white/5 flex items-center gap-2 shadow-sm">
-           <span class="w-2 h-2 rounded-full bg-[#FFD700] animate-ping"></span> LIVE SYNC
-         </span>
+          <div>
+            <h2 class="text-2xl font-black text-slate-100 font-mono tracking-widest">BITÁCORA TÉCNICA</h2>
+            <p class="text-slate-400 text-sm mt-2 font-mono">Registro inmutable de auditoría procesada.</p>
+          </div>
+          <span class="px-4 py-1.5 bg-[#0f172a] text-[#FFD700] text-sm font-bold rounded-full border border-white/5 flex items-center gap-2 shadow-sm">
+            <span class="w-2 h-2 rounded-full bg-[#FFD700] animate-ping"></span> LIVE SYNC
+          </span>
        </div>
        
        <div class="overflow-y-auto max-h-[600px] flex-1 custom-scrollbar pr-2">
@@ -241,23 +225,16 @@
                  <td class="px-6 py-4"><a href={log.link} class="text-[#FFD700] hover:text-yellow-200 hover:underline font-bold transition-colors">{log.id}</a></td>
                  <td class="px-6 py-4">
                    <div class="flex items-center gap-2">
-                     {#if log.status === 'ANULABLE' || log.status === 'OBSERVADA' || log.status === 'MANCHA_CRITICA'}
-                       <svg class="w-4 h-4 text-rose-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                     {#if log.status === 'ANULABLE' || log.status === 'OBSERVADA' || log.status === 'MANCHA_DETECTADA'}
+                       <svg class="w-4 h-4 {log.status === 'MANCHA_DETECTADA' ? 'text-red-500 scale-125' : 'text-rose-500'} animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                      {/if}
-                     <span class="px-2 py-1 rounded text-xs font-bold {log.status === 'EXITO' ? 'bg-emerald-500/10 text-emerald-400' : log.status === 'ANULABLE' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/30' : 'bg-orange-500/10 text-orange-400'}">
+                     <span class="px-2 py-1 rounded text-xs font-bold {log.status === 'EXITO' ? 'bg-emerald-500/10 text-emerald-400' : (log.status === 'ANULABLE' || log.status === 'MANCHA_DETECTADA') ? 'bg-rose-500/10 text-rose-500 border border-rose-500/30' : 'bg-orange-500/10 text-orange-400'}">
                        {log.status}
                      </span>
                    </div>
                  </td>
                  <td class="px-6 py-4 font-mono text-xs {log.status === 'OBSERVADO' ? 'text-orange-400' : 'text-slate-500'}">
-                   {#if log.reason && log.reason.includes('Daño físico severo')}
-                     <span class="inline-flex items-center gap-1 px-2 py-1 bg-rose-600 text-white rounded font-bold animate-pulse">
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                        DAÑO FÍSICO SEVERO
-                     </span>
-                   {:else}
-                     {log.reason}
-                   {/if}
+                   {log.reason}
                  </td>
                </tr>
              {/each}
@@ -275,7 +252,6 @@
 
 {#snippet infraTab()}
   <div class="tab-content flex flex-col gap-6 h-[700px]">
-    
     <div class="grid grid-cols-2 gap-6">
       <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 flex items-center justify-between">
         <div>
@@ -285,20 +261,20 @@
         <div class="flex items-center gap-2">
           <span class="relative flex h-3 w-3">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full {health.db_oficial === 'ONLINE' ? 'bg-emerald-400' : 'bg-rose-400'} opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-3 w-3 {health.db_oficial === 'ONLINE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'}"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 {health.db_oficial === 'ONLINE' ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
           </span>
           <span class="text-sm font-bold {health.db_oficial === 'ONLINE' ? 'text-emerald-500' : 'text-rose-500'}">{health.db_oficial === 'ONLINE' ? 'ONLINE' : 'OFFLINE'}</span>
         </div>
       </div>
       <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 flex items-center justify-between">
         <div>
-          <h3 class="font-bold text-slate-200 text-lg">PostgreSQL CR</h3>
-          <p class="text-xs text-slate-500 font-mono">PORT: 5434</p>
+          <h3 class="font-bold text-slate-200 text-lg">PostgreSQL RRV</h3>
+          <p class="text-xs text-slate-500 font-mono">PORT: 5432</p>
         </div>
         <div class="flex items-center gap-2">
           <span class="relative flex h-3 w-3">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full {health.db_rapido === 'ONLINE' ? 'bg-emerald-400' : 'bg-rose-400'} opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-3 w-3 {health.db_rapido === 'ONLINE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'}"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 {health.db_rapido === 'ONLINE' ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
           </span>
           <span class="text-sm font-bold {health.db_rapido === 'ONLINE' ? 'text-emerald-500' : 'text-rose-500'}">{health.db_rapido === 'ONLINE' ? 'ONLINE' : 'OFFLINE'}</span>
         </div>
@@ -310,39 +286,29 @@
       <div class="space-y-8 flex-1 justify-center flex flex-col">
         <div>
           <div class="flex justify-between mb-2">
-            <span class="text-sm font-bold text-slate-400">Mesas en catálogo maestro</span>
-            <span class="text-sm font-bold text-slate-400">5396</span>
-          </div>
-          <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-[#FFD700] h-full rounded-full transition-all duration-1000" style="width: 100%"></div>
-          </div>
-        </div>
-        
-        <div>
-          <div class="flex justify-between mb-2">
             <span class="text-sm font-bold text-slate-400">Reportes RRV recibidos</span>
-            <span class="text-sm font-bold text-slate-400">{processed} / 5396</span>
+            <span class="text-sm font-bold text-slate-400">{Math.min(processed, 5396)} / 5396</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-[#E11D48] h-full rounded-full transition-all duration-1000" style="width: {Math.min((processed/5396)*100, 100)}%"></div>
+            <div class="bg-emerald-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(16,185,129,0.3)]" style="width: {Math.min((processed/5396)*100, 100)}%"></div>
           </div>
         </div>
         <div>
           <div class="flex justify-between mb-2">
             <span class="text-sm font-bold text-slate-400">Procesados / Validados</span>
-            <span class="text-sm font-bold text-slate-400">{(processed * 0.95).toFixed(0)}</span>
+            <span class="text-sm font-bold text-slate-400">{Math.min(processed * 0.95, 5396).toFixed(0)}</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-[#FACC15] h-full rounded-full transition-all duration-1000" style="width: {Math.min(((processed * 0.95)/5396)*100, 100)}%"></div>
+            <div class="bg-cyan-500 h-full rounded-full transition-all duration-1000" style="width: {Math.min(((processed * 0.95)/5396)*100, 100)}%"></div>
           </div>
         </div>
         <div>
           <div class="flex justify-between mb-2">
             <span class="text-sm font-bold text-slate-400">Pendientes sin reporte / Observados</span>
-            <span class="text-sm font-bold text-slate-400">{5396 - processed}</span>
+            <span class="text-sm font-bold text-slate-400">{Math.max(0, 5396 - processed)}</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-[#94A3B8] h-full rounded-full transition-all duration-1000" style="width: {Math.min(((5396 - processed)/5396)*100, 100)}%"></div>
+            <div class="bg-slate-700 h-full rounded-full transition-all duration-1000" style="width: {Math.max(0, Math.min(((5396 - processed)/5396)*100, 100))}%"></div>
           </div>
         </div>
       </div>
@@ -355,109 +321,77 @@
       </div>
       <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 text-center">
         <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest">RECIBIDAS</p>
-        <p class="text-3xl font-black text-blue-400">{processed}</p>
+        <p class="text-3xl font-black text-blue-400">{data.actasRecibidas}</p>
       </div>
       <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 text-center">
         <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest">OBSERVADAS</p>
-        <p class="text-3xl font-black text-orange-400">{(processed * 0.05).toFixed(0)}</p>
+        <p class="text-3xl font-black text-orange-400">{(data.actasRecibidas * 0.05).toFixed(0)}</p>
       </div>
       <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 text-center">
         <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest">PENDIENTES</p>
-        <p class="text-3xl font-black text-rose-400">{Math.max(5396 - processed, 0)}</p>
+        <p class="text-3xl font-black text-rose-400">{Math.max(5396 - data.actasRecibidas, 0)}</p>
       </div>
     </div>
-
   </div>
 {/snippet}
 
 <div class="min-h-screen bg-[#0f172a] text-slate-200 p-8 font-sans selection:bg-[#FFD700]/30 overflow-x-hidden flex">
-  
-  <!-- Minimalist Sidebar Navigation -->
   <div class="w-24 shrink-0 flex flex-col items-center py-10 border-r border-white/5 mr-8 h-[calc(100vh-4rem)] sticky top-8 bg-[#1e293b] rounded-3xl shadow-xl">
     <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FFD700] to-yellow-500 flex items-center justify-center shadow-[0_0_20px_rgba(255,215,0,0.4)] mb-12">
       <svg class="w-6 h-6 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
     </div>
-    
     <div class="flex-1 flex flex-col gap-8 w-full items-center">
-      <button onclick={() => switchTab('home')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'home' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
-        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+      <button onclick={() => switchTab('home')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'home' ? 'bg-[#0f172a] text-[#FFD700]' : 'text-slate-500'}">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
       </button>
-      <button onclick={() => switchTab('map')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'map' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
-        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      <button onclick={() => switchTab('map')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'map' ? 'bg-[#0f172a] text-[#FFD700]' : 'text-slate-500'}">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       </button>
-      <button onclick={() => switchTab('charts')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'charts' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
-        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+      <button onclick={() => switchTab('charts')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'charts' ? 'bg-[#0f172a] text-[#FFD700]' : 'text-slate-500'}">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
       </button>
-      <button onclick={() => switchTab('logs')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'logs' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
-        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+      <button onclick={() => switchTab('logs')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'logs' ? 'bg-[#0f172a] text-[#FFD700]' : 'text-slate-500'}">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
       </button>
-      <button onclick={() => switchTab('infra')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'infra' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
-        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+      <button onclick={() => switchTab('infra')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'infra' ? 'bg-[#0f172a] text-[#FFD700]' : 'text-slate-500'}">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
       </button>
     </div>
   </div>
 
   <div class="flex-1 max-w-[1400px] mx-auto flex flex-col">
     <div class="header-card mb-8 p-6 rounded-2xl bg-[#1e293b] border border-white/5 flex justify-between items-center shadow-xl">
-      <div class="flex items-center gap-6">
-        <div>
-          <h1 class="text-3xl font-black tracking-tight text-slate-100">CONSEJO DE <span class="text-[#FFD700]">PONIENTE</span></h1>
-          <div class="flex gap-3 mt-2">
-            <span class="text-xs uppercase tracking-widest text-slate-400 font-bold bg-[#0f172a] px-2 py-0.5 rounded border border-white/5">V.4.0</span>
-            <span class="text-xs uppercase tracking-widest text-emerald-400 font-bold bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">ONLINE</span>
-          </div>
+      <div>
+        <h1 class="text-3xl font-black tracking-tight text-slate-100">CONSEJO DE <span class="text-[#FFD700]">PONIENTE</span></h1>
+        <div class="flex gap-3 mt-2">
+          <span class="text-xs uppercase tracking-widest text-slate-400 font-bold bg-[#0f172a] px-2 py-0.5 rounded border border-white/5">V.4.2</span>
+          <span class="text-xs uppercase tracking-widest text-emerald-400 font-bold bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">SINCRO TOTAL</span>
         </div>
       </div>
-      
       <div class="flex items-center gap-6">
         <div class="text-right">
-          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">FUENTE DE DATOS</p>
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">FUENTE ACTUAL</p>
           <p class="text-xl font-black text-[#FFD700]">{modo}</p>
         </div>
-        <button onclick={toggleModo} class="group relative px-6 py-3 rounded-xl font-bold text-slate-900 transition-all overflow-hidden bg-[#FFD700] hover:bg-yellow-400 shadow-[0_0_15px_rgba(255,215,0,0.3)]">
-          <span class="relative z-10">CAMBIAR A {modo === 'RRV' ? 'OFICIAL' : 'RRV'}</span>
+        <button onclick={toggleModo} class="px-6 py-3 rounded-xl font-bold text-slate-900 bg-[#FFD700] hover:bg-yellow-400 shadow-[0_0_15px_rgba(255,215,0,0.3)] transition-all">
+          CAMBIAR FUENTE
         </button>
       </div>
     </div>
 
     <div class="flex-1 relative">
-      {#if activeTab === 'home'}
-        {@render homeTab()}
-      {:else if activeTab === 'map'}
-        {@render mapTab()}
-      {:else if activeTab === 'charts'}
-        {@render chartsTab()}
-      {:else if activeTab === 'logs'}
-        {@render logsTab()}
-      {:else if activeTab === 'infra'}
-        {@render infraTab()}
+      {#if activeTab === 'home'} {@render homeTab()} 
+      {:else if activeTab === 'map'} {@render mapTab()}
+      {:else if activeTab === 'charts'} {@render chartsTab()}
+      {:else if activeTab === 'logs'} {@render logsTab()}
+      {:else if activeTab === 'infra'} {@render infraTab()}
       {/if}
     </div>
-
-    <footer class="mt-8 text-center text-slate-500 font-medium tracking-widest text-xs py-6 border-t border-white/5 uppercase relative z-10 flex flex-col items-center gap-2">
-      <span class="text-[#FFD700] drop-shadow-[0_0_5px_#FFD700]">CONSEJO DE PONIENTE - 2026</span>
-    </footer>
   </div>
 </div>
 
 <style>
-  @keyframes pan {
-    from { background-position: 0 0; }
-    to { background-position: 20px 20px; }
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(15, 23, 42, 0.5); 
-    border-radius: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 215, 0, 0.3); 
-    border-radius: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 215, 0, 0.6); 
-  }
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.3); border-radius: 4px; }
 </style>

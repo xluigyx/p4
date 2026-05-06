@@ -57,9 +57,11 @@ export async function load() {
             console.error("Error MongoDB (Oficial):", e);
         }
 
-        // PostgreSQL (RRV) Connection
+        // PostgreSQL (RRV) Connection & Audit Logs
         try {
             const pgPool = new Pool({ connectionString: process.env.DB_RAPIDO || 'postgresql://postgres:bolivia_vota@db_rapido:5432/rrv_db', connectionTimeoutMillis: 2000 });
+            
+            // 1. Votos Consolidados
             const res = await pgPool.query('SELECT candidato, SUM(votos) as total FROM transcripciones GROUP BY candidato');
             res.rows.forEach(row => {
                 const name = candMap[row.candidato] || row.candidato;
@@ -69,17 +71,32 @@ export async function load() {
                     rrvData.total += v;
                 }
             });
-            await pgPool.end();
-        } catch (e) {
-            console.error("Error PostgreSQL (RRV):", e);
-        }
 
-        return { 
-            oficial: oficialData, 
-            rrv: rrvData, 
-            logs: auditLogs,
-            status: "OK" 
-        };
+            // 2. Conteo Único de Actas (Fix de duplicidad)
+            const countRes = await pgPool.query('SELECT COUNT(DISTINCT codigo_acta) as unique_acts FROM transcripciones');
+            const actasCount = parseInt(countRes.rows[0].unique_acts) || 0;
+
+            // 3. Bitácora de Auditoría Real (Postgres)
+            const logRes = await pgPool.query('SELECT * FROM logs_auditoria ORDER BY timestamp DESC LIMIT 50');
+            auditLogs = logRes.rows.map(l => ({
+                id: l.detalles.match(/Acta ([\w-]+)/)?.[1] || `L-${l.id}`,
+                time: l.timestamp.toISOString(),
+                source: 'PDF',
+                link: '#',
+                status: l.accion === 'PROCESO_OK' ? 'EXITO' : 'MANCHA_DETECTADA',
+                reason: l.detalles
+            }));
+
+            await pgPool.end();
+
+            return { 
+                oficial: oficialData, 
+                rrv: rrvData, 
+                logs: auditLogs,
+                actasRecibidas: actasCount,
+                desync: Math.abs(oficialData.total - rrvData.total) > 0,
+                status: "OK" 
+            };
     } catch (error) {
         console.error("Fallo inesperado:", error);
         return fallback;

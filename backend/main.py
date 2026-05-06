@@ -30,14 +30,36 @@ SessionLocalRapido = sessionmaker(autocommit=False, autoflush=False, bind=engine
 @app.on_event("startup")
 async def startup_event():
     os.makedirs(INGEST_DIR_RRV, exist_ok=True)
-    # Ping both databases to ensure connectivity
-    try:
-        client_oficial.admin.command('ping')
-        print("Conectado exitosamente a DB_OFICIAL (MongoDB)")
-        with engine_rapido.connect() as conn:
-            print("Conectado exitosamente a DB_RAPIDO")
-    except Exception as e:
-        print(f"Error conectando a las BD: {e}")
+    
+    # 1. Bucle de espera para Postgres (Resiliencia)
+    max_retries = 10
+    connected = False
+    
+    print("⏳ Aguardando conexión con clústers de base de datos...", flush=True)
+    for i in range(max_retries):
+        try:
+            # Ping MongoDB
+            client_oficial.admin.command('ping')
+            
+            # Ping Postgres y verificar integridad
+            import psycopg2
+            conn = psycopg2.connect(DB_RAPIDO_URL)
+            cur = conn.cursor()
+            cur.execute("ALTER TABLE transcripciones DROP CONSTRAINT IF EXISTS unique_voto")
+            cur.execute("ALTER TABLE transcripciones ADD CONSTRAINT unique_voto UNIQUE (codigo_acta, candidato)")
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            print("✅ Conectado exitosamente y base de datos verificada.", flush=True)
+            connected = True
+            break
+        except Exception as e:
+            print(f"⚠️ Intento {i+1}/{max_retries}: Base de datos no lista. Reintentando en 5s... ({e})", flush=True)
+            await asyncio.sleep(5)
+            
+    if not connected:
+        print("❌ CRITICAL: No se pudo establecer conexión tras varios intentos.", flush=True)
 
 @app.get("/api/health")
 async def health_check():

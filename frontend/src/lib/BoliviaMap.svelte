@@ -13,15 +13,14 @@
   function onClickDept(deptId, deptName, event) {
     if (event) {
       const bbox = event.currentTarget.getBBox();
-      const scale = 2.2;
-      const tx = 300 - (bbox.x + bbox.width / 2) * scale;
-      const ty = 300 - (bbox.y + bbox.height / 2) * scale;
-      mapStyle = `transform: translate(${tx}px, ${ty}px) scale(${scale});`;
+      const scale = 2.5; 
+      const tx = 400 - (bbox.x + bbox.width / 2) * scale;
+      const ty = 400 - (bbox.y + bbox.height / 2) * scale;
+      mapStyle = `transform: translate(${tx}px, ${ty}px) scale(${scale}); transition: transform 1.2s cubic-bezier(0.2, 1, 0.2, 1);`;
     }
     selectedDept = { id: deptId, name: deptName };
   }
 
-  // Paths representing the 9 departments of Bolivia
   const depts = [
     {
       id: "PA",
@@ -61,15 +60,15 @@
     {
       id: "OR",
       name: "Oruro",
-      cx: 180,
-      cy: 420,
+      cx: 155,
+      cy: 435,
       d: "m 29.689207,432.14989 3.65,-1.86 6.13,-1.58 3.1,-1.57 5.89,-4.7 5.8,-7.13 3.1,-2.01 3.39,-1.33 6.23,-0.59 7.16,0.12 2.05,0.47 6.85,3.04 10.36,7.73 1.66,0.26 1.38,-0.68 0.91,-1.69 -0.17,-1.65 -0.95,-1.73 0.09,-1.34 9.870003,-6.36 5.85,-4.49 7.04,-4.1 6.29,-2.04 1.94,-0.34 1.43,0.33 1.27,1.1 2.13,3.61 2.7,2.92 0,0 6.6,4.73 2.77,2.68 5.08,6.75 3.96,9 0,0 -0.73,1.53 -4.26,1.47 -0.87,0.81 -0.5,4.61 0.28,2.29 0.97,1.27 3.04,1.24 3.05,-0.46 3.93,0.93 -0.44,1.19 -2.08,1.28 -1.86,0.66 -3.23,2.27 -0.67,7.18 2.25,5.09 0.86,1.16 5.26,4.32 5.7,2.19 2.71,0.09 2.83,0.92 1.4,1.14 2.41,7.42 1.43,3.24 2.34,3.42 5.53,6.43 0.17,1.08 -0.87,1.18 -1.43,0.42 -10.75,0.89 -3.51,-0.09 -3.45,0.58 -4.02,2.32 -6.95,6.57 -2.15,1.4 -43.14,18.87 -6.880003,2.91 -1.89,0.34 -14.15,-5.05 -16.09,-5.14 -12.46,-4.56 0,0 6.5,-7.07 -2.42,-3.44 -3,-2.64 -4.59,-1.98 -7.08,-7.44 -5.92,-4.09 -3.32,-5.92 1.66,-3.73 -3.41,-7.4 -1.21,-4.47 -0.41,-5.21 0.46,-4.05 -0.82,-2.24 -1.76,-2.58 -0.82,-8.66 -2.25,-2.56 -0.68,-1.53 0.47,-1.35 2.89,-2.01 0.46,-0.98 z",
     },
     {
       id: "PT",
       name: "Potosí",
-      cx: 220,
-      cy: 550,
+      cx: 245,
+      cy: 575,
       d: "m 223.26921,618.60989 0.12,2.14 -0.94,3.09 -0.81,1.46 -1.03,0.8 -1.6,4.29 -0.37,2.23 2.78,3.14 3.36,5.29 1.71,7.44 -0.88,0.25 0,0 -20.61,0.29 -2.96,0.48 -4.66,0.06 -3.17,-2.09 -5.71,-7.47 -7.64,-5.48 -7.34,-2.77 -0.66,0.88 -2.78,12.88 -0.79,2.26 -1.94,2.15 -13.67,4.07 -3.65,0.23 -2.41,1.7 -1.75,7.99 -0.17,2.82 -7.65,2.77 -4.85,2.49 0.5,5.99 -5.64,4.64 -2.98,5.55 -19.95,4.33 -10.800003,-1.26 -4.19,-2.72 -0.39,-6.27 1.73,-8.58 -4.18,-13.81 0.49,-1.43 0.02,-1.88 -1.1,-7.28 -1.43,-2.4 -1.22,-0.72 -4.45,-4.62 -0.12,-6.42 -0.89,-5.27 -1.69,-4.22 -2.39,-3.09 -0.13,-16.85 -11.87,-19.25 -4.12,-0.06 -1.31,-0.61 -1.43,-1.87 -0.28,-1.14 0.03,-7.32 1.82,-2.47 2.86,-1.98 0.26,-1.08 -1.28,-1.38 -2.87,-2 -4.04,-1.54 -3.1,-1.8 -1.7,-1.83 -1.39,-2.51 -0.13,-2.7 1,-1.14 1.58,-0.76 -0.88,-5.35 -2.29,-5.42 -0.92,-1.17 0.38,-1.35 6.39,-1.74 3.67,-0.16 2.74,-7.32 -2.2,-4.4 -6.19,-4.86 0.13,-2.07 5.78,-7.3 0,0 12.46,4.56 16.09,5.14 14.15,5.05 1.89,-0.34 6.880003,-2.91 43.14,-18.87 2.15,-1.4 6.95,-6.57 4.02,-2.32 3.45,-0.58 3.51,0.09 10.75,-0.89 1.43,-0.42 0.87,-1.18 -0.17,-1.08 -5.53,-6.43 -2.34,-3.42 -1.43,-3.24 -2.41,-7.42 -1.4,-1.14 -2.83,-0.92 -2.71,-0.09 -5.7,-2.19 -5.26,-4.32 -0.86,-1.16 -2.25,-5.09 0.67,-7.18 3.23,-2.27 1.86,-0.66 2.08,-1.28 0.44,-1.19 -3.93,-0.93 -3.05,0.46 -3.04,-1.24 -0.97,-1.27 -0.28,-2.29 0.5,-4.61 0.87,-0.81 4.26,-1.47 0.73,-1.53 0,0 8.53,-0.44 4.1,0.46 1.62,-0.26 7.97,-6.13 4.35,-0.92 2.98,0.41 1.01,0.56 1.42,2.71 2.96,3.4 2.76,-0.62 3.53,1.67 5.07,3.69 3.26,3.1 3.9,5.21 4.4,4.85 6.56,5.11 0,0 -1.16,0.51 -4.14,-1.35 -10.68,-2.61 -0.4,4.12 2.04,4.89 1.24,6.85 8.32,1.41 0.94,0.86 0.11,1.06 -0.37,1.13 -3.97,3.85 0.44,6.45 -2.07,4.2 1.11,3.36 6.45,7.81 0.49,1.63 4.01,2.7 7.85,3.6 4.93,0.22 1.48,-0.99 1.27,-0.34 3.8,0.32 2.86,2.48 1.76,4.29 -0.19,2.32 1.4,4.8 3.34,5.03 -2.63,3.84 -5.49,5.38 -7.11,3.92 -1.88,0.53 -3.25,0.15 -4.5,0.81 -4.65,2.81 -2.49,8.83 0.16,3.07 3.57,14.3 -0.76,2.91 -3.24,6.58 -2.57,7.42 -0.65,7.87 -1.56,4.73 -0.4,9.86 0.17,1.75 1.3,2.78 5.94,6.02 z",
     },
     {
@@ -89,10 +88,10 @@
   ];
 
   const candColors = {
-    Lannister: "#FFD700", // Dorado
-    Targaryen: "#E11D48", // Rojo
-    Baratheon: "#FACC15", // Amarillo
-    Stark: "#94A3B8",     // Gris
+    Lannister: "#FFD700", 
+    Targaryen: "#E11D48", 
+    Baratheon: "#FACC15", 
+    Stark: "#94A3B8",     
     Empate: "#64748b",
   };
 
@@ -125,9 +124,7 @@
   });
 
   onMount(() => {
-    // Animating the map components
     gsap.from(".dpto", { scale: 0, stagger: 0.05, ease: "back.out" });
-
     gsap.from("text.dept-label", {
       opacity: 0,
       y: 10,
@@ -139,14 +136,8 @@
   });
 </script>
 
-<div
-  class="relative w-full h-full overflow-hidden rounded-[2.5rem] bg-[#0a0b10]/60 backdrop-blur-md border border-white/10 shadow-[inset_0_0_50px_rgba(0,0,0,0.5)]"
->
-  <svg
-    viewBox="0 0 800 800"
-    class="w-full h-full cursor-pointer overflow-visible"
-    style={mapStyle}
-  >
+<div class="relative w-full h-full overflow-hidden rounded-[2.5rem] bg-[#0a0b10]/60 backdrop-blur-md border border-white/10 shadow-[inset_0_0_50px_rgba(0,0,0,0.5)]">
+  <svg viewBox="0 0 800 800" class="w-full h-full cursor-pointer overflow-visible" style={mapStyle}>
     <defs>
       <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
         <feGaussianBlur stdDeviation="4" result="blur" />
@@ -190,65 +181,30 @@
         class="mb-8 text-slate-400 hover:text-cyan-400 font-bold tracking-widest text-sm flex items-center gap-2 transition-colors"
         onclick={() => {
           selectedDept = null;
-          mapStyle =
-            "transform: scale(1); transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);";
+          mapStyle = "transform: scale(1); transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);";
         }}
       >
-        <svg
-          class="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          ><path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M6 18L18 6M6 6l12 12"
-          ></path></svg
-        >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         CERRAR PANEL
       </button>
 
-      <h2
-        class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 mb-2"
-      >
-        {selectedDept.name}
-      </h2>
-      <p
-        class="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-10 border-b border-white/10 pb-4 flex items-center gap-2"
-      >
+      <h2 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 mb-2">{selectedDept.name}</h2>
+      <p class="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-10 border-b border-white/10 pb-4 flex items-center gap-2">
         <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
         {dataMode} MODE
       </p>
 
       <div class="space-y-6">
         {#each ["Lannister", "Targaryen", "Baratheon", "Stark"] as cand}
-          {@const vts =
-            (resultsByDept[selectedDept.id] &&
-              resultsByDept[selectedDept.id][cand]) ||
-            0}
+          {@const vts = (resultsByDept[selectedDept.id] && resultsByDept[selectedDept.id][cand]) || 0}
           <div class="group">
             <div class="flex justify-between items-center mb-2">
-              <span
-                class="text-sm font-black text-slate-200 tracking-wider uppercase"
-                >{cand}</span
-              >
-              <span class="text-sm font-mono text-white/80"
-                >{vts.toLocaleString()}</span
-              >
+              <span class="text-sm font-black text-slate-200 tracking-wider uppercase">{cand}</span>
+              <span class="text-sm font-mono text-white/80">{vts.toLocaleString()}</span>
             </div>
-            <div
-              class="h-2 w-full bg-[#0a0b10] rounded-full overflow-hidden border border-white/10"
-            >
-              <div
-                class="h-full transition-all duration-1000 relative"
-                style="width: {vts > 0
-                  ? Math.min((vts / 1500) * 100, 100)
-                  : 0}%; background-color: {candColors[cand]}"
-              >
-                <div
-                  class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.3)_50%,transparent_75%,transparent_100%)] bg-[length:10px_10px] animate-[pan_2s_linear_infinite]"
-                ></div>
+            <div class="h-2 w-full bg-[#0a0b10] rounded-full overflow-hidden border border-white/10">
+              <div class="h-full transition-all duration-1000 relative" style="width: {vts > 0 ? Math.min((vts / 1500) * 100, 100) : 0}%; background-color: {candColors[cand]}">
+                <div class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.3)_50%,transparent_75%,transparent_100%)] bg-[length:10px_10px] animate-[pan_2s_linear_infinite]"></div>
               </div>
             </div>
           </div>
