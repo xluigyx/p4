@@ -32,6 +32,9 @@ def load_master_data():
             dt_path = os.path.join(csv_dir, "Recursos Practica 4 - DistribucionTerritorial.csv")
             if os.path.exists(dt_path):
                 df = pd.read_csv(dt_path)
+                # Asegurar columna codigo_territorial
+                if 'id' in df.columns and 'codigo_territorial' not in df.columns:
+                    df.rename(columns={'id': 'codigo_territorial'}, inplace=True)
                 df.to_sql('distribucionterritorial', engine_rapido, if_exists='append', index=False)
                 print("✅ DistribucionTerritorial (CSV) -> Postgres")
 
@@ -39,6 +42,9 @@ def load_master_data():
             re_path = os.path.join(csv_dir, "Recursos Practica 4 - RecintosElectorales.csv")
             if os.path.exists(re_path):
                 df = pd.read_csv(re_path)
+                # Ajustar FK a DistribucionTerritorial
+                if 'distribucion_id' in df.columns:
+                    df.rename(columns={'distribucion_id': 'codigo_territorial'}, inplace=True)
                 df.to_sql('recintoselectorales', engine_rapido, if_exists='append', index=False)
                 print("✅ RecintosElectorales (CSV) -> Postgres")
 
@@ -49,14 +55,18 @@ def load_master_data():
                 df.to_sql('actasimpresas', engine_rapido, if_exists='append', index=False)
                 print(f"✅ ActasImpresas (CSV) -> Postgres ({len(df)} actas)")
         else:
-            # Lógica original de Excel (abreviada)
+            # Lógica de Excel con normalización de columnas
             df_dist = pd.read_excel(excel_path, sheet_name="DistribucionTerritorial")
+            if 'id' in df_dist.columns: df_dist.rename(columns={'id': 'codigo_territorial'}, inplace=True)
             df_dist.to_sql('distribucionterritorial', engine_rapido, if_exists='append', index=False)
+            
             df_recintos = pd.read_excel(excel_path, sheet_name="RecintosElectorales")
+            if 'distribucion_id' in df_recintos.columns: df_recintos.rename(columns={'distribucion_id': 'codigo_territorial'}, inplace=True)
             df_recintos.to_sql('recintoselectorales', engine_rapido, if_exists='append', index=False)
+            
             df_actas = pd.read_excel(excel_path, sheet_name="ActasImpresas")
             df_actas.to_sql('actasimpresas', engine_rapido, if_exists='append', index=False)
-            print("✅ Catálogo maestro cargado desde Excel.")
+            print("✅ Catálogo maestro cargado desde Excel (Normalizado).")
 
         # Garantizar Constraint Única
         conn_pg = psycopg2.connect(db_url_rapido)
@@ -122,11 +132,16 @@ def bot_worker(bot_id, folder_path):
                     print(f"✅ Acta {archivo} validada aritméticamente ({suma} votos).")
                     
                     # Transfer data to RRV cluster using psycopg2
+                    # Transfer data to RRV cluster using psycopg2
                     raw_codigo = resultado.get("codigo_acta", archivo)
-                    # Limpieza de ID
-                    codigo_acta = raw_codigo.lower().replace("acta_", "").replace(".pdf", "").replace(".png", "").replace(".jpg", "")
                     
-                    max_retries = 2 # Intentar una vez extra
+                    # Limpieza de ID Robusta (ej. 'acta_123.pdf' -> '123')
+                    codigo_acta = raw_codigo.lower()
+                    for ext in [".pdf", ".png", ".jpg", ".jpeg"]:
+                        codigo_acta = codigo_acta.replace(ext, "")
+                    codigo_acta = codigo_acta.replace("acta_", "")
+                    
+                    max_retries = 2 
                     
                     for attempt in range(max_retries):
                         conn = None
@@ -140,23 +155,23 @@ def bot_worker(bot_id, folder_path):
                                     "INSERT INTO transcripciones (codigo_acta, candidato, votos) VALUES (%s, %s, %s) ON CONFLICT (codigo_acta, candidato) DO NOTHING",
                                     (codigo_acta, cand, cand_votos)
                                 )
-                                time.sleep(0.1) # Reducir la presión sobre la base de datos
+                                time.sleep(0.05)
                                 
                             conn.commit()
                             cursor.close()
-                            break # Exito, salir del bucle de reintentos
+                            break 
                             
                         except psycopg2.errors.DeadlockDetected:
                             if conn is not None:
                                 conn.rollback()
-                            print(f"⚠️ Deadlock detectado en {archivo}. Esperando 0.5 segundos para reintentar ({attempt+1}/{max_retries})...")
+                            print(f"⚠️ Deadlock detectado en {archivo}. Reintentando ({attempt+1}/{max_retries})...")
                             time.sleep(0.5)
                             
                         except psycopg2.errors.ForeignKeyViolation as fk_err:
                             if conn is not None:
                                 conn.rollback()
-                            print(f"⚠️ Ignorando acta no oficial (Llave Foránea) - {codigo_acta}: {fk_err.pgerror}")
-                            break # Continuar sin reintentar ni fallar por completo
+                            print(f"⚠️ Error FK: El acta '{codigo_acta}' no existe en actasimpresas. Omitiendo.")
+                            break 
                             
                         except Exception as e:
                             if conn is not None:
