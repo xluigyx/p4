@@ -105,9 +105,22 @@ def bot_worker(bot_id, folder_path):
                 else:
                     print(f"❌ Error aritmético en {archivo}: {suma} != {votos_validos}")
                     
-                if resultado.get("status") == "OBSERVADA":
-                    print(f"❌ ALERTA: {archivo} - {resultado.get('motivo')}")
+                if resultado.get("status") in ["OBSERVADA", "ANULABLE"]:
+                    print(f"❌ ALERTA OCR: {archivo} - {resultado.get('motivo')}")
+                    # Enviar estado a la Bitácora de Svelte (MongoDB)
+                    db_url_oficial = os.environ.get("DB_OFICIAL", "mongodb://db_oficial:27017/oficial_db")
+                    client = pymongo.MongoClient(db_url_oficial)
+                    db_mongo = client.get_database()
                     
+                    db_mongo["actas_oficiales"].update_one(
+                        {"id_acta": codigo_acta},
+                        {"$set": {
+                            "status": resultado.get("status"), 
+                            "reason": resultado.get("motivo"),
+                            "source": "OCR/VISION"
+                        }},
+                        upsert=True
+                    )
             except Exception as e:
                 print(f"⚠️ Error al procesar o insertar el archivo {archivo}: {e}")
                 

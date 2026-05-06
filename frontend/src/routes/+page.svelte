@@ -231,9 +231,14 @@
                  </td>
                  <td class="px-6 py-4"><a href={log.link} class="text-[#FFD700] hover:text-yellow-200 hover:underline font-bold transition-colors">{log.id}</a></td>
                  <td class="px-6 py-4">
-                   <span class="px-2 py-1 rounded text-xs font-bold {log.status === 'EXITO' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-orange-500/10 text-orange-400'}">
-                     {log.status}
-                   </span>
+                   <div class="flex items-center gap-2">
+                     {#if log.status === 'ANULABLE' || log.status === 'OBSERVADA'}
+                       <svg class="w-4 h-4 text-rose-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                     {/if}
+                     <span class="px-2 py-1 rounded text-xs font-bold {log.status === 'EXITO' ? 'bg-emerald-500/10 text-emerald-400' : log.status === 'ANULABLE' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/30' : 'bg-orange-500/10 text-orange-400'}">
+                       {log.status}
+                     </span>
+                   </div>
                  </td>
                  <td class="px-6 py-4 font-mono text-xs {log.status === 'OBSERVADO' ? 'text-orange-400' : 'text-slate-500'}">{log.reason}</td>
                </tr>
