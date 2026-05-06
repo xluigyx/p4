@@ -10,52 +10,47 @@
   let activeTab = $state('home'); 
 
   // Health checks using data from +page.server.js
-  let health = $derived(data.health || { db_rapido: 'ONLINE', db_oficial: 'ONLINE' });
-  let healthInterval;
+  let health = $derived(data.health || { db_rapido: 'OFFLINE', db_oficial: 'OFFLINE', backend: 'OFFLINE' });
 
-  let mockVotesRRV = {
-    'PA': { Tyrion: 500, Daenerys: 200, Robert: 100, Sansa: 50 },
-    'BE': { Tyrion: 300, Daenerys: 800, Robert: 100, Sansa: 100 },
-    'LP': { Tyrion: 400, Daenerys: 300, Robert: 900, Sansa: 200 },
-    'CB': { Tyrion: 350, Daenerys: 400, Robert: 200, Sansa: 800 },
-    'SC': { Tyrion: 800, Daenerys: 200, Robert: 300, Sansa: 100 },
-    'OR': { Tyrion: 100, Daenerys: 200, Robert: 150, Sansa: 400 },
-    'PT': { Tyrion: 200, Daenerys: 200, Robert: 200, Sansa: 100 },
-    'CH': { Tyrion: 300, Daenerys: 400, Robert: 100, Sansa: 200 },
-    'TJ': { Tyrion: 100, Daenerys: 100, Robert: 500, Sansa: 200 }
-  };
+  let mockVotesRRV = $state({
+    'LP': { Lannister: 1200, Targaryen: 800, Baratheon: 400, Stark: 150 },
+    'SC': { Lannister: 500, Targaryen: 1500, Baratheon: 200, Stark: 800 },
+    'CB': { Lannister: 800, Targaryen: 600, Baratheon: 300, Stark: 100 },
+    'OR': { Lannister: 300, Targaryen: 200, Baratheon: 100, Stark: 50 },
+    'PT': { Lannister: 250, Targaryen: 250, Baratheon: 100, Stark: 50 },
+    'TJ': { Lannister: 150, Targaryen: 400, Baratheon: 200, Stark: 100 },
+    'CH': { Lannister: 200, Targaryen: 300, Baratheon: 100, Stark: 50 },
+    'BE': { Lannister: 100, Targaryen: 400, Baratheon: 150, Stark: 200 },
+    'PA': { Lannister: 50, Targaryen: 100, Baratheon: 50, Stark: 80 }
+  });
 
-  let mockVotesOficial = {
-    'PA': { Tyrion: 510, Daenerys: 210, Robert: 105, Sansa: 52 },
-    'BE': { Tyrion: 305, Daenerys: 810, Robert: 102, Sansa: 105 },
-    'LP': { Tyrion: 410, Daenerys: 305, Robert: 920, Sansa: 210 },
-    'CB': { Tyrion: 355, Daenerys: 405, Robert: 210, Sansa: 810 },
-    'SC': { Tyrion: 820, Daenerys: 205, Robert: 310, Sansa: 105 },
-    'OR': { Tyrion: 105, Daenerys: 205, Robert: 155, Sansa: 410 },
-    'PT': { Tyrion: 210, Daenerys: 205, Robert: 205, Sansa: 105 },
-    'CH': { Tyrion: 310, Daenerys: 410, Robert: 105, Sansa: 205 },
-    'TJ': { Tyrion: 105, Daenerys: 105, Robert: 510, Sansa: 210 }
-  };
+  let mockVotesOficial = $state({
+    'LP': { Lannister: 1210, Targaryen: 805, Baratheon: 400, Stark: 150 },
+    'SC': { Lannister: 505, Targaryen: 1510, Baratheon: 202, Stark: 800 },
+    'CB': { Lannister: 800, Targaryen: 600, Baratheon: 300, Stark: 100 },
+    'OR': { Lannister: 300, Targaryen: 200, Baratheon: 100, Stark: 50 },
+    'PT': { Lannister: 252, Targaryen: 255, Baratheon: 100, Stark: 50 },
+    'TJ': { Lannister: 150, Targaryen: 400, Baratheon: 200, Stark: 100 },
+    'CH': { Lannister: 200, Targaryen: 300, Baratheon: 100, Stark: 50 },
+    'BE': { Lannister: 100, Targaryen: 400, Baratheon: 150, Stark: 200 },
+    'PA': { Lannister: 50, Targaryen: 100, Baratheon: 50, Stark: 80 }
+  });
 
   let currentVotes = $derived(modo === 'RRV' ? mockVotesRRV : mockVotesOficial);
 
-  let logs = $state([
-    { id: 1, type: 'OK', message: 'Mesa 10102 procesada por Bot-1', status: 'Válida' },
-    { id: 2, type: 'ERR', message: 'Mesa 10502: Acta Manchada - OMITIENDO', status: 'Manchada' },
-    { id: 3, type: 'ERR', message: 'Mesa 10503: Acta Rota - OMITIENDO', status: 'Rota' },
-    { id: 4, type: 'WARN', message: 'Mesa 10901: Inconsistencia Aritmética', status: 'Ilegible' },
-    { id: 5, type: 'AUDIT', message: 'Bot-Ráfaga detectado en SCZ. Bloqueo IP.', status: 'Sistema' },
-  ]);
-
-  let logFilter = $state('ALL');
-
-  let filteredLogs = $derived(logs.filter(log => {
-    if (logFilter === 'ALL') return true;
-    return log.status === logFilter;
-  }));
+  let logs = $state(
+    Array.from({length: 5396}).map((_, i) => ({
+      id: `ACT-${String(i+1).padStart(4, '0')}`,
+      time: `10:${String(Math.floor((i/60)%60)).padStart(2, '0')}:${String(i%60).padStart(2, '0')}`,
+      source: i % 10 === 0 ? 'SMS' : 'PDF',
+      link: '#',
+      status: i % 15 === 0 ? 'OBSERVADO' : 'EXITO',
+      reason: i % 15 === 0 ? (i % 2 === 0 ? 'Suma incorrecta' : 'Firma faltante') : '-'
+    }))
+  );
 
   let totalVotes = $derived.by(() => {
-    let totals = { Tyrion: 0, Daenerys: 0, Robert: 0, Sansa: 0 };
+    let totals = { Lannister: 0, Targaryen: 0, Baratheon: 0, Stark: 0 };
     for (let dept in currentVotes) {
       for (let cand in currentVotes[dept]) {
         if (totals[cand] !== undefined) {
@@ -66,6 +61,7 @@
     return totals;
   });
 
+  let processed = $derived(Object.values(totalVotes).reduce((a,b) => a+b, 0));
   let maxVotes = $derived(Math.max(...Object.values(totalVotes), 1));
 
   function toggleModo() {
@@ -100,27 +96,27 @@
 
 {#snippet homeTab()}
   <div class="space-y-6 tab-content">
-    <div class="p-10 rounded-3xl bg-[#0a0b10]/60 backdrop-blur-md border border-white/10 shadow-[0_0_50px_rgba(6,182,212,0.1)] relative overflow-hidden group">
-      <div class="absolute inset-0 bg-gradient-to-br from-cyan-400/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
-      <h2 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 mb-6 tracking-tighter">ANTIGRAVITY SYSTEM v4.0</h2>
-      <p class="text-slate-300 leading-relaxed text-xl font-light max-w-3xl relative z-10">
-        Plataforma de cómputo electoral de élite con Midnight Glassmorphism y tolerancia a fallos extrema.
+    <div class="p-10 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 relative overflow-hidden group">
+      <div class="absolute inset-0 bg-gradient-to-br from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
+      <h2 class="text-5xl font-black text-slate-100 mb-6 tracking-tighter drop-shadow-md">SISTEMA REAL DE CÓMPUTO</h2>
+      <p class="text-slate-400 leading-relaxed text-xl font-light max-w-3xl relative z-10">
+        Plataforma de monitoreo de élite con alta disponibilidad y tolerancia a fallos extrema.
       </p>
       
       <div class="grid grid-cols-3 gap-8 mt-12 relative z-10">
-         <div class="p-8 rounded-2xl bg-[#0a0b10] border border-cyan-400/30 text-center shadow-[inset_0_0_20px_rgba(6,182,212,0.1)] hover:border-cyan-400 transition-colors">
-            <h3 class="text-cyan-400 font-mono text-sm tracking-widest mb-3">TRANSPARENCIA</h3>
-            <p class="text-4xl font-black text-white">100%</p>
+         <div class="p-8 rounded-xl bg-[#0f172a] border border-white/5 text-center shadow-inner hover:border-[#FFD700]/30 transition-colors">
+            <h3 class="text-slate-500 font-bold text-sm tracking-widest mb-3">TRANSPARENCIA</h3>
+            <p class="text-4xl font-black text-slate-200">100%</p>
          </div>
-         <div class="p-8 rounded-2xl bg-[#0a0b10] border border-blue-600/30 text-center shadow-[inset_0_0_20px_rgba(37,99,235,0.1)] hover:border-blue-600 transition-colors">
-            <h3 class="text-blue-500 font-mono text-sm tracking-widest mb-3">ESTADO GENERAL</h3>
-            <p class="text-4xl font-black {health.db_rapido === 'ONLINE' && health.db_oficial === 'ONLINE' ? 'text-green-400 drop-shadow-[0_0_10px_rgba(74,222,128,0.5)]' : 'text-red-400'}">
+         <div class="p-8 rounded-xl bg-[#0f172a] border border-white/5 text-center shadow-inner hover:border-[#FFD700]/30 transition-colors">
+            <h3 class="text-[#FFD700] font-bold text-sm tracking-widest mb-3">ESTADO GENERAL</h3>
+            <p class="text-4xl font-black {health.db_rapido === 'ONLINE' && health.db_oficial === 'ONLINE' ? 'text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]' : 'text-rose-500'}">
                {health.db_rapido === 'ONLINE' && health.db_oficial === 'ONLINE' ? 'ÓPTIMA' : 'DEGRADADA'}
             </p>
          </div>
-         <div class="p-8 rounded-2xl bg-[#0a0b10] border border-white/10 text-center shadow-[inset_0_0_20px_rgba(255,255,255,0.05)] hover:border-white/30 transition-colors">
-            <h3 class="text-slate-400 font-mono text-sm tracking-widest mb-3">ACTAS INGRESADAS</h3>
-            <p class="text-4xl font-black text-white">5,396</p>
+         <div class="p-8 rounded-xl bg-[#0f172a] border border-white/5 text-center shadow-inner hover:border-[#FFD700]/30 transition-colors">
+            <h3 class="text-slate-500 font-bold text-sm tracking-widest mb-3">ACTAS INGRESADAS</h3>
+            <p class="text-4xl font-black text-slate-200">5,396</p>
          </div>
       </div>
     </div>
@@ -129,19 +125,19 @@
 
 {#snippet mapTab()}
   <div class="tab-content relative map-container h-full">
-    <div class="p-8 rounded-3xl bg-[#0a0b10]/60 backdrop-blur-md border border-white/10 h-[700px] flex flex-col items-center justify-center relative overflow-hidden">
+    <div class="p-8 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 h-[700px] flex flex-col items-center justify-center relative overflow-hidden">
       {#if (modo === 'RRV' && health.db_rapido === 'OFFLINE') || (modo === 'OFICIAL' && health.db_oficial === 'OFFLINE')}
-        <div class="absolute inset-0 bg-red-950/80 backdrop-blur-xl flex items-center justify-center z-10 border-4 border-red-500/50">
+        <div class="absolute inset-0 bg-red-950/80 backdrop-blur-md flex items-center justify-center z-10 border-4 border-rose-500/30">
            <div class="text-center">
-             <h2 class="text-7xl font-black text-red-500 font-mono tracking-widest drop-shadow-[0_0_25px_rgba(239,68,68,1)]">OFFLINE</h2>
-             <p class="text-red-300 mt-4 tracking-widest uppercase text-xl font-bold">Clúster inaccesible en la red</p>
+             <h2 class="text-7xl font-black text-rose-500 font-mono tracking-widest">OFFLINE</h2>
+             <p class="text-rose-400 mt-4 tracking-widest uppercase text-xl font-bold">Clúster inaccesible en la red</p>
            </div>
         </div>
       {/if}
-      <div class="absolute top-8 left-8 text-slate-500 uppercase tracking-widest text-sm font-bold bg-[#0a0b10]/40 px-4 py-2 rounded-full border border-white/10 z-10">
-         Fuente de Datos: <span class="text-cyan-400">{modo}</span>
+      <div class="absolute top-8 left-8 text-slate-400 uppercase tracking-widest text-sm font-bold bg-[#0f172a] px-4 py-2 rounded-full border border-white/5 z-10 shadow-md">
+         Fuente de Datos: <span class="text-[#FFD700]">{modo}</span>
       </div>
-      <div class="w-full h-full pt-12">
+      <div class="w-full h-full pt-12 relative z-0">
          <BoliviaMap resultsByDept={currentVotes} dataMode={modo} />
       </div>
     </div>
@@ -150,22 +146,22 @@
 
 {#snippet chartsTab()}
   <div class="space-y-6 tab-content">
-     <div class="p-10 rounded-3xl bg-[#0a0b10]/60 backdrop-blur-md border border-white/10">
-       <div class="flex justify-between items-end mb-10 border-b border-white/10 pb-6">
-          <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">Comparativa Global</h2>
-          <span class="px-4 py-2 bg-blue-600/20 text-blue-400 text-sm font-bold rounded-full border border-blue-600/30">MODO: {modo}</span>
+     <div class="p-10 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5">
+       <div class="flex justify-between items-end mb-10 border-b border-white/5 pb-6">
+          <h2 class="text-3xl font-black text-slate-100">Comparativa Global</h2>
+          <span class="px-4 py-2 bg-[#0f172a] text-[#FFD700] text-sm font-bold rounded-full border border-white/5">MODO: {modo}</span>
        </div>
        
        <div class="space-y-8">
          {#each Object.entries(totalVotes) as [cand, votes]}
            <div class="relative group">
              <div class="flex justify-between mb-3">
-               <span class="font-black text-xl text-slate-100 tracking-wide">{cand}</span>
-               <span class="font-mono text-cyan-400 text-xl">{votes.toLocaleString()} votos</span>
+               <span class="font-black text-xl text-slate-200 tracking-wide uppercase">{cand}</span>
+               <span class="font-mono text-slate-400 text-xl">{votes.toLocaleString()} votos</span>
              </div>
-             <div class="h-6 w-full bg-[#0a0b10] rounded-full overflow-hidden border border-white/10 shadow-inner">
-               <div class="h-full bg-gradient-to-r from-cyan-400 to-blue-600 rounded-full transition-all duration-1000 ease-out relative group-hover:shadow-[0_0_20px_rgba(6,182,212,0.5)]" style="width: {(votes/maxVotes)*100}%">
-                 <div class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px] animate-[pan_2s_linear_infinite]"></div>
+             <div class="h-6 w-full bg-[#0f172a] rounded-full overflow-hidden border border-white/5 shadow-inner">
+               <div class="h-full rounded-full transition-all duration-1000 ease-out {cand === 'Baratheon' ? 'border-2 border-black box-border' : ''}" 
+                    style="width: {Math.min((votes/maxVotes)*100, 100)}%; background-color: {cand === 'Lannister' ? '#FFD700' : cand === 'Targaryen' ? '#E11D48' : cand === 'Baratheon' ? '#FACC15' : '#94A3B8'}">
                </div>
              </div>
            </div>
@@ -177,53 +173,51 @@
 
 {#snippet logsTab()}
   <div class="tab-content">
-     <div class="p-8 rounded-3xl bg-[#0a0b10]/60 backdrop-blur-md border border-white/10 h-[700px] flex flex-col shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-       <div class="flex justify-between items-center mb-6 border-b border-white/10 pb-6">
+     <div class="p-8 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 h-[700px] flex flex-col">
+       <div class="flex justify-between items-center mb-6 border-b border-white/5 pb-6">
          <div>
-           <h2 class="text-2xl font-black text-cyan-400 font-mono tracking-widest">>> AUDITORÍA DE ACTAS</h2>
-           <div class="flex gap-2 mt-4">
-             {#each ['ALL', 'Manchada', 'Rota', 'Ilegible', 'Válida'] as f}
-               <button onclick={() => logFilter = f} class="px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full border transition-all {logFilter === f ? 'bg-cyan-400/20 text-cyan-300 border-cyan-400/50 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : 'bg-transparent text-slate-500 border-white/10 hover:border-white/30 hover:text-slate-300'}">{f}</button>
-             {/each}
-           </div>
+           <h2 class="text-2xl font-black text-slate-100 font-mono tracking-widest">BITÁCORA TÉCNICA</h2>
+           <p class="text-slate-400 text-sm mt-2 font-mono">Registro inmutable de auditoría procesada.</p>
          </div>
-         <span class="px-4 py-1.5 bg-blue-600/20 text-blue-400 text-sm font-bold rounded-full border border-blue-600/30 animate-pulse self-start">RÁFAGA BOT</span>
+         <span class="px-4 py-1.5 bg-[#0f172a] text-[#FFD700] text-sm font-bold rounded-full border border-white/5 flex items-center gap-2 shadow-sm">
+           <span class="w-2 h-2 rounded-full bg-[#FFD700] animate-ping"></span> LIVE SYNC
+         </span>
        </div>
        
-       <div class="overflow-x-auto">
+       <div class="overflow-y-auto flex-1 custom-scrollbar pr-2">
          <table class="w-full text-left text-slate-300 text-sm">
-           <thead class="text-xs uppercase bg-[#0a0b10] text-slate-400 border-b border-white/10">
+           <thead class="text-xs uppercase bg-[#0f172a] text-slate-500 sticky top-0 z-10 shadow-sm">
              <tr>
-               <th scope="col" class="px-6 py-3">ID</th>
-               <th scope="col" class="px-6 py-3">Estado</th>
-               <th scope="col" class="px-6 py-3">Mensaje del Bot</th>
-               <th scope="col" class="px-6 py-3">Acción</th>
+               <th scope="col" class="px-6 py-4 font-bold">Hora</th>
+               <th scope="col" class="px-6 py-4 font-bold">Fuente</th>
+               <th scope="col" class="px-6 py-4 font-bold">Acta</th>
+               <th scope="col" class="px-6 py-4 font-bold">Resultado</th>
+               <th scope="col" class="px-6 py-4 font-bold">Detalle</th>
              </tr>
            </thead>
            <tbody>
-             {#each filteredLogs as log (log.id)}
+             {#each logs as log (log.id)}
                <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                 <td class="px-6 py-4 font-mono">{log.id.toString().padStart(4, '0')}</td>
+                 <td class="px-6 py-4 font-mono text-xs text-slate-400">{log.time}</td>
                  <td class="px-6 py-4">
-                   <span class="px-2 py-1 rounded text-xs font-bold {log.status === 'Manchada' || log.status === 'Rota' ? 'bg-red-500/20 text-red-400' : log.status === 'Válida' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">
+                   <span class="px-2 py-1 rounded text-xs font-bold border bg-rose-500/10 text-rose-400 border-rose-500/20">
+                     {log.source}
+                   </span>
+                 </td>
+                 <td class="px-6 py-4"><a href={log.link} class="text-[#FFD700] hover:text-yellow-200 hover:underline font-bold transition-colors">{log.id}</a></td>
+                 <td class="px-6 py-4">
+                   <span class="px-2 py-1 rounded text-xs font-bold {log.status === 'EXITO' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-orange-500/10 text-orange-400'}">
                      {log.status}
                    </span>
                  </td>
-                 <td class="px-6 py-4">{log.message}</td>
-                 <td class="px-6 py-4">
-                   {#if log.type === 'ERR'}
-                     <span class="text-xs font-bold text-red-400 uppercase">Rechazada</span>
-                   {:else}
-                     <span class="text-xs font-bold text-slate-500 uppercase">-</span>
-                   {/if}
-                 </td>
+                 <td class="px-6 py-4 font-mono text-xs {log.status === 'OBSERVADO' ? 'text-orange-400' : 'text-slate-500'}">{log.reason}</td>
                </tr>
              {/each}
            </tbody>
          </table>
-         {#if filteredLogs.length === 0}
+         {#if logs.length === 0}
             <div class="py-10 text-center text-slate-500 font-mono">
-              [ NO HAY ACTAS QUE COINCIDAN CON EL FILTRO ]
+              [ NO HAY REGISTROS EN LA BITÁCORA ]
             </div>
          {/if}
        </div>
@@ -232,115 +226,153 @@
 {/snippet}
 
 {#snippet infraTab()}
-  <div class="tab-content grid grid-cols-2 gap-8 h-[700px]">
-     <!-- Oficial Cluster -->
-     <div class="p-10 rounded-3xl bg-[#0a0b10]/60 backdrop-blur-md border {health.db_oficial === 'ONLINE' ? 'border-cyan-400/40 shadow-[0_0_40px_rgba(6,182,212,0.15)]' : 'border-red-500/50 shadow-[0_0_40px_rgba(239,68,68,0.2)]'} relative overflow-hidden flex flex-col">
-       <div class="flex justify-between items-start mb-8 border-b border-white/10 pb-6">
-         <div>
-           <h2 class="text-3xl font-black text-white">CLÚSTER OFICIAL</h2>
-           <p class="text-cyan-400 font-mono text-sm mt-2 tracking-widest">PORT: 5433 // POSTGRES</p>
-         </div>
-         <div class="relative flex items-center justify-center w-12 h-12">
-            {#if health.db_oficial === 'ONLINE'}
-              <span class="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-20 animate-ping"></span>
-              <span class="relative inline-flex rounded-full h-4 w-4 bg-green-500 shadow-[0_0_10px_#22c55e]"></span>
-            {:else}
-              <span class="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-20 animate-ping"></span>
-              <span class="relative inline-flex rounded-full h-4 w-4 bg-red-500 shadow-[0_0_10px_#ef4444]"></span>
-            {/if}
-         </div>
-       </div>
-       <div class="space-y-6 flex-1">
-         <div class="flex justify-between items-center bg-[#0a0b10] p-4 rounded-xl border border-white/5">
-           <span class="text-slate-400 text-sm uppercase tracking-widest">Estado</span>
-           <span class="text-white text-sm font-bold bg-white/10 px-3 py-1 rounded">{health.db_oficial}</span>
-         </div>
-         <div class="flex justify-between items-center bg-[#0a0b10] p-4 rounded-xl border border-white/5">
-           <span class="text-slate-400 text-sm uppercase tracking-widest">Consistencia</span>
-           <span class="text-cyan-400 text-sm font-bold">Estricta</span>
-         </div>
-       </div>
-     </div>
-
-     <!-- RRV Cluster -->
-     <div class="p-10 rounded-3xl bg-[#0a0b10]/60 backdrop-blur-md border {health.db_rapido === 'ONLINE' ? 'border-blue-600/40 shadow-[0_0_40px_rgba(37,99,235,0.15)]' : 'border-red-500/50 shadow-[0_0_40px_rgba(239,68,68,0.2)]'} relative overflow-hidden flex flex-col">
-       <div class="flex justify-between items-start mb-8 border-b border-white/10 pb-6">
-         <div>
-           <h2 class="text-3xl font-black text-white">CLÚSTER RRV</h2>
-           <p class="text-blue-500 font-mono text-sm mt-2 tracking-widest">PORT: 5434 // POSTGRES</p>
-         </div>
-         <div class="relative flex items-center justify-center w-12 h-12">
-            {#if health.db_rapido === 'ONLINE'}
-              <span class="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-20 animate-ping"></span>
-              <span class="relative inline-flex rounded-full h-4 w-4 bg-green-500 shadow-[0_0_10px_#22c55e]"></span>
-            {:else}
-              <span class="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-20 animate-ping"></span>
-              <span class="relative inline-flex rounded-full h-4 w-4 bg-red-500 shadow-[0_0_10px_#ef4444]"></span>
-            {/if}
-         </div>
-       </div>
-       <div class="space-y-6 flex-1">
-         <div class="flex justify-between items-center bg-[#0a0b10] p-4 rounded-xl border border-white/5">
-           <span class="text-slate-400 text-sm uppercase tracking-widest">Estado</span>
-           <span class="text-white text-sm font-bold bg-white/10 px-3 py-1 rounded">{health.db_rapido}</span>
-         </div>
-         <div class="flex justify-between items-center bg-[#0a0b10] p-4 rounded-xl border border-white/5">
-           <span class="text-slate-400 text-sm uppercase tracking-widest">Velocidad</span>
-           <span class="text-blue-500 text-sm font-bold">Alta / Append Only</span>
-         </div>
-       </div>
-     </div>
-  </div>
-{/snippet}
-
-<div class="min-h-screen bg-[#0a0b10] text-white p-8 font-sans selection:bg-cyan-400/30">
-  
-  <div class="header-card mb-8 p-6 rounded-3xl bg-[#0a0b10]/60 backdrop-blur-md border border-white/10 flex justify-between items-center shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-    <div class="flex items-center gap-6">
-      <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.4)]">
-        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+  <div class="tab-content flex flex-col gap-6 h-[700px]">
+    
+    <div class="grid grid-cols-2 gap-6">
+      <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-200 text-lg">PostgreSQL OF</h3>
+          <p class="text-xs text-slate-500 font-mono">PORT: 5433</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full {health.db_oficial === 'ONLINE' ? 'bg-emerald-400' : 'bg-rose-400'} opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 {health.db_oficial === 'ONLINE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'}"></span>
+          </span>
+          <span class="text-sm font-bold {health.db_oficial === 'ONLINE' ? 'text-emerald-500' : 'text-rose-500'}">{health.db_oficial === 'ONLINE' ? 'ONLINE' : 'OFFLINE'}</span>
+        </div>
       </div>
-      <div>
-        <h1 class="text-3xl font-black tracking-tight">ANTIGRAVITY <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">SYSTEM</span></h1>
-        <div class="flex gap-3 mt-2">
-          <span class="text-xs uppercase tracking-widest text-slate-400 font-bold bg-[#0a0b10] px-2 py-0.5 rounded border border-white/10">V.4.0</span>
-          <span class="text-xs uppercase tracking-widest text-cyan-400 font-bold bg-cyan-400/10 px-2 py-0.5 rounded border border-cyan-400/20">LIVE</span>
+      <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-200 text-lg">PostgreSQL CR</h3>
+          <p class="text-xs text-slate-500 font-mono">PORT: 5434</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full {health.db_rapido === 'ONLINE' ? 'bg-emerald-400' : 'bg-rose-400'} opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 {health.db_rapido === 'ONLINE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'}"></span>
+          </span>
+          <span class="text-sm font-bold {health.db_rapido === 'ONLINE' ? 'text-emerald-500' : 'text-rose-500'}">{health.db_rapido === 'ONLINE' ? 'ONLINE' : 'OFFLINE'}</span>
         </div>
       </div>
     </div>
-    
-    <div class="flex items-center gap-6">
-      <div class="text-right">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">DEPLOY MODE</p>
-        <p class="text-xl font-black {modo === 'RRV' ? 'text-blue-500' : 'text-cyan-400'}">{modo}</p>
+
+    <div class="p-8 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 flex-1 flex flex-col">
+      <h3 class="font-black text-slate-100 text-xl mb-8">Avance de Procesamiento</h3>
+      <div class="space-y-8 flex-1 justify-center flex flex-col">
+        <div>
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-bold text-slate-400">Mesas en catálogo maestro</span>
+            <span class="text-sm font-bold text-slate-400">100%</span>
+          </div>
+          <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
+            <div class="bg-gradient-to-r from-purple-600 to-[#FFD700] h-full rounded-full transition-all duration-1000" style="width: 100%"></div>
+          </div>
+        </div>
+        
+        <div>
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-bold text-slate-400">Reportes RRV recibidos</span>
+            <span class="text-sm font-bold text-slate-400">{processed} / 5396</span>
+          </div>
+          <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
+            <div class="bg-gradient-to-r from-purple-600 to-[#FFD700] h-full rounded-full transition-all duration-1000" style="width: {Math.min((processed/5396)*100, 100)}%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-bold text-slate-400">Procesados / Validados</span>
+            <span class="text-sm font-bold text-slate-400">{(processed * 0.95).toFixed(0)}</span>
+          </div>
+          <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
+            <div class="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full rounded-full transition-all duration-1000" style="width: {Math.min(((processed * 0.95)/5396)*100, 100)}%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between mb-2">
+            <span class="text-sm font-bold text-slate-400">Pendientes sin reporte</span>
+            <span class="text-sm font-bold text-slate-400">{Math.max(5396 - processed, 0)}</span>
+          </div>
+          <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
+            <div class="bg-gradient-to-r from-rose-500 to-rose-400 h-full rounded-full transition-all duration-1000" style="width: {Math.min((Math.max(5396 - processed, 0)/5396)*100, 100)}%"></div>
+          </div>
+        </div>
       </div>
-      <button onclick={toggleModo} class="group relative px-8 py-4 rounded-2xl font-black text-white transition-all overflow-hidden bg-[#0a0b10] border border-white/10 hover:border-cyan-400/50">
-        <div class="absolute inset-0 bg-gradient-to-r {modo === 'RRV' ? 'from-cyan-400 to-blue-600' : 'from-blue-600 to-cyan-400'} opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-        <span class="relative z-10 text-cyan-400 group-hover:text-white transition-colors">CAMBIAR A {modo === 'RRV' ? 'OFICIAL' : 'RRV'}</span>
+    </div>
+
+    <div class="grid grid-cols-4 gap-6">
+      <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 text-center">
+        <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest">REGISTRADAS</p>
+        <p class="text-3xl font-black text-slate-100">5,396</p>
+      </div>
+      <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 text-center">
+        <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest">RECIBIDAS</p>
+        <p class="text-3xl font-black text-blue-400">{processed}</p>
+      </div>
+      <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 text-center">
+        <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest">OBSERVADAS</p>
+        <p class="text-3xl font-black text-orange-400">{(processed * 0.05).toFixed(0)}</p>
+      </div>
+      <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 text-center">
+        <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest">PENDIENTES</p>
+        <p class="text-3xl font-black text-rose-400">{Math.max(5396 - processed, 0)}</p>
+      </div>
+    </div>
+
+  </div>
+{/snippet}
+
+<div class="min-h-screen bg-[#0f172a] text-slate-200 p-8 font-sans selection:bg-[#FFD700]/30 overflow-x-hidden flex">
+  
+  <!-- Minimalist Sidebar Navigation -->
+  <div class="w-24 shrink-0 flex flex-col items-center py-10 border-r border-white/5 mr-8 h-[calc(100vh-4rem)] sticky top-8 bg-[#1e293b] rounded-3xl shadow-xl">
+    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FFD700] to-yellow-500 flex items-center justify-center shadow-[0_0_20px_rgba(255,215,0,0.4)] mb-12">
+      <svg class="w-6 h-6 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+    </div>
+    
+    <div class="flex-1 flex flex-col gap-8 w-full items-center">
+      <button onclick={() => switchTab('home')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'home' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
+        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+      </button>
+      <button onclick={() => switchTab('map')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'map' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
+        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      </button>
+      <button onclick={() => switchTab('charts')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'charts' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
+        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+      </button>
+      <button onclick={() => switchTab('logs')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'logs' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
+        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+      </button>
+      <button onclick={() => switchTab('infra')} class="p-3 rounded-xl transition-all duration-300 group {activeTab === 'infra' ? 'bg-[#0f172a] shadow-inner text-[#FFD700]' : 'text-slate-500 hover:text-[#FFD700]'}">
+        <svg class="w-7 h-7 group-hover:drop-shadow-[0_0_10px_#FFD700] transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
       </button>
     </div>
   </div>
 
-  <div class="grid grid-cols-12 gap-8">
-    <div class="col-span-3 space-y-3">
-      <button onclick={() => switchTab('home')} class="w-full text-left px-6 py-5 rounded-2xl font-bold transition-all border {activeTab === 'home' ? 'bg-cyan-400/10 border-cyan-400/50 text-white shadow-[0_0_15px_rgba(6,182,212,0.2)]' : 'bg-[#0a0b10] border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'}">
-        <span class="mr-3">📍</span> Home
-      </button>
-      <button onclick={() => switchTab('map')} class="w-full text-left px-6 py-5 rounded-2xl font-bold transition-all border {activeTab === 'map' ? 'bg-blue-600/10 border-blue-600/50 text-white shadow-[0_0_15px_rgba(37,99,235,0.2)]' : 'bg-[#0a0b10] border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'}">
-        <span class="mr-3">🗺️</span> Centro de Cómputo
-      </button>
-      <button onclick={() => switchTab('charts')} class="w-full text-left px-6 py-5 rounded-2xl font-bold transition-all border {activeTab === 'charts' ? 'bg-cyan-400/10 border-cyan-400/50 text-white shadow-[0_0_15px_rgba(6,182,212,0.2)]' : 'bg-[#0a0b10] border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'}">
-        <span class="mr-3">⚖️</span> Comparativa
-      </button>
-      <button onclick={() => switchTab('logs')} class="w-full text-left px-6 py-5 rounded-2xl font-bold transition-all border {activeTab === 'logs' ? 'bg-blue-600/10 border-blue-600/50 text-white shadow-[0_0_15px_rgba(37,99,235,0.2)]' : 'bg-[#0a0b10] border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'}">
-        <span class="mr-3">📑</span> Auditoría
-      </button>
-      <button onclick={() => switchTab('infra')} class="w-full text-left px-6 py-5 rounded-2xl font-bold transition-all border {activeTab === 'infra' ? 'bg-cyan-400/10 border-cyan-400/50 text-white shadow-[0_0_15px_rgba(6,182,212,0.2)]' : 'bg-[#0a0b10] border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'}">
-        <span class="mr-3">🖥️</span> Infraestructura
-      </button>
+  <div class="flex-1 max-w-[1400px] mx-auto flex flex-col">
+    <div class="header-card mb-8 p-6 rounded-2xl bg-[#1e293b] border border-white/5 flex justify-between items-center shadow-xl">
+      <div class="flex items-center gap-6">
+        <div>
+          <h1 class="text-3xl font-black tracking-tight text-slate-100">SISTEMA REAL DE <span class="text-[#FFD700]">CÓMPUTO</span></h1>
+          <div class="flex gap-3 mt-2">
+            <span class="text-xs uppercase tracking-widest text-slate-400 font-bold bg-[#0f172a] px-2 py-0.5 rounded border border-white/5">V.4.0</span>
+            <span class="text-xs uppercase tracking-widest text-emerald-400 font-bold bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">ONLINE</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-6">
+        <div class="text-right">
+          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">FUENTE DE DATOS</p>
+          <p class="text-xl font-black text-[#FFD700]">{modo}</p>
+        </div>
+        <button onclick={toggleModo} class="group relative px-6 py-3 rounded-xl font-bold text-slate-900 transition-all overflow-hidden bg-[#FFD700] hover:bg-yellow-400 shadow-[0_0_15px_rgba(255,215,0,0.3)]">
+          <span class="relative z-10">CAMBIAR A {modo === 'RRV' ? 'OFICIAL' : 'RRV'}</span>
+        </button>
+      </div>
     </div>
 
-    <div class="col-span-9">
+    <div class="flex-1 relative">
       {#if activeTab === 'home'}
         {@render homeTab()}
       {:else if activeTab === 'map'}
@@ -353,16 +385,31 @@
         {@render infraTab()}
       {/if}
     </div>
-  </div>
 
-  <footer class="mt-12 text-center text-slate-500 font-mono text-sm py-4 border-t border-white/10">
-    Hecho por Antigravity
-  </footer>
+    <footer class="mt-8 text-center text-slate-500 font-medium tracking-widest text-xs py-6 border-t border-white/5 uppercase relative z-10 flex flex-col items-center gap-2">
+      <span class="text-[#FFD700] drop-shadow-[0_0_5px_#FFD700]">CONSEJO DE PONIENTE - 2026</span>
+    </footer>
+  </div>
 </div>
 
 <style>
   @keyframes pan {
     from { background-position: 0 0; }
     to { background-position: 20px 20px; }
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5); 
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 215, 0, 0.3); 
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 215, 0, 0.6); 
   }
 </style>
