@@ -10,3 +10,4 @@ redis==5.0.1
 pandas
 openpyxl
 SQLAlchemy
+pymongo

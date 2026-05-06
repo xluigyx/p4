@@ -18,7 +18,9 @@
     "vite": "^5.4.11"
   },
   "dependencies": {
-    "gsap": "^3.12.5"
+    "gsap": "^3.12.5",
+    "pg": "^8.11.3",
+    "mongodb": "^6.3.0"
   },
   "type": "module"
 }

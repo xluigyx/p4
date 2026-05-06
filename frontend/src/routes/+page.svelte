@@ -8,9 +8,14 @@
 
   let modo = $state('RRV');
   let activeTab = $state('home'); 
+  let healthInterval;
 
   // Health checks using data from +page.server.js
-  let health = $derived(data.health || { db_rapido: 'OFFLINE', db_oficial: 'OFFLINE', backend: 'OFFLINE' });
+  let health = $derived({ 
+    db_rapido: data.status === 'OK' ? 'ONLINE' : 'OFFLINE', 
+    db_oficial: data.status === 'OK' ? 'ONLINE' : 'OFFLINE', 
+    backend: data.status === 'OK' ? 'ONLINE' : 'OFFLINE' 
+  });
 
   let mockVotesRRV = $state({
     'LP': { Lannister: 1200, Targaryen: 800, Baratheon: 400, Stark: 150 },
@@ -38,16 +43,14 @@
 
   let currentVotes = $derived(modo === 'RRV' ? mockVotesRRV : mockVotesOficial);
 
-  let logs = $state(
-    Array.from({length: 5396}).map((_, i) => ({
+  let logs = $derived(data.logs && data.logs.length > 0 ? data.logs : Array.from({length: 5}).map((_, i) => ({
       id: `ACT-${String(i+1).padStart(4, '0')}`,
-      time: `10:${String(Math.floor((i/60)%60)).padStart(2, '0')}:${String(i%60).padStart(2, '0')}`,
-      source: i % 10 === 0 ? 'SMS' : 'PDF',
+      time: `10:00:00`,
+      source: 'CSV',
       link: '#',
-      status: i % 15 === 0 ? 'OBSERVADO' : 'EXITO',
-      reason: i % 15 === 0 ? (i % 2 === 0 ? 'Suma incorrecta' : 'Firma faltante') : '-'
-    }))
-  );
+      status: 'ESPERANDO DATOS',
+      reason: '-'
+    })));
 
   let totalVotes = $derived.by(() => {
     let totals = { Lannister: 0, Targaryen: 0, Baratheon: 0, Stark: 0 };
@@ -98,7 +101,7 @@
   <div class="space-y-6 tab-content">
     <div class="p-10 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 relative overflow-hidden group">
       <div class="absolute inset-0 bg-gradient-to-br from-[#FFD700]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
-      <h2 class="text-5xl font-black text-slate-100 mb-6 tracking-tighter drop-shadow-md">SISTEMA REAL DE CÓMPUTO</h2>
+      <h2 class="text-5xl font-black text-slate-100 mb-6 tracking-tighter drop-shadow-md">CONSEJO DE PONIENTE</h2>
       <p class="text-slate-400 leading-relaxed text-xl font-light max-w-3xl relative z-10">
         Plataforma de monitoreo de élite con alta disponibilidad y tolerancia a fallos extrema.
       </p>
@@ -149,23 +152,45 @@
      <div class="p-10 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5">
        <div class="flex justify-between items-end mb-10 border-b border-white/5 pb-6">
           <h2 class="text-3xl font-black text-slate-100">Comparativa Global</h2>
-          <span class="px-4 py-2 bg-[#0f172a] text-[#FFD700] text-sm font-bold rounded-full border border-white/5">MODO: {modo}</span>
+          <span class="px-4 py-2 bg-[#0f172a] text-[#FFD700] text-sm font-bold rounded-full border border-white/5">DB SYNC</span>
        </div>
        
-       <div class="space-y-8">
-         {#each Object.entries(totalVotes) as [cand, votes]}
-           <div class="relative group">
-             <div class="flex justify-between mb-3">
-               <span class="font-black text-xl text-slate-200 tracking-wide uppercase">{cand}</span>
-               <span class="font-mono text-slate-400 text-xl">{votes.toLocaleString()} votos</span>
-             </div>
-             <div class="h-6 w-full bg-[#0f172a] rounded-full overflow-hidden border border-white/5 shadow-inner">
-               <div class="h-full rounded-full transition-all duration-1000 ease-out {cand === 'Baratheon' ? 'border-2 border-black box-border' : ''}" 
-                    style="width: {Math.min((votes/maxVotes)*100, 100)}%; background-color: {cand === 'Lannister' ? '#FFD700' : cand === 'Targaryen' ? '#E11D48' : cand === 'Baratheon' ? '#FACC15' : '#94A3B8'}">
+       <div class="grid grid-cols-2 gap-12">
+         <!-- RRV -->
+         <div class="space-y-8">
+           <h3 class="text-xl font-bold text-slate-400 mb-6 uppercase tracking-widest border-b border-white/5 pb-2">Votos por Imagen (RRV)</h3>
+           {#each Object.entries(data.rrv.candidatos) as [cand, votes]}
+             <div class="relative group">
+               <div class="flex justify-between mb-3">
+                 <span class="font-black text-lg text-slate-200 tracking-wide uppercase">{cand}</span>
+                 <span class="font-mono text-slate-400 text-lg">{votes.toLocaleString()}</span>
+               </div>
+               <div class="h-4 w-full bg-[#0f172a] rounded-full overflow-hidden border border-white/5 shadow-inner">
+                 <div class="h-full rounded-full transition-all duration-1000 ease-out {cand === 'Baratheon' ? 'border-2 border-black box-border' : ''}" 
+                      style="width: {data.rrv.total > 0 ? Math.min((votes/data.rrv.total)*100, 100) : 0}%; background-color: {cand === 'Lannister' ? '#FFD700' : cand === 'Targaryen' ? '#E11D48' : cand === 'Baratheon' ? '#FACC15' : '#94A3B8'}">
+                 </div>
                </div>
              </div>
-           </div>
-         {/each}
+           {/each}
+         </div>
+         
+         <!-- Oficial -->
+         <div class="space-y-8 border-l border-white/5 pl-12">
+           <h3 class="text-xl font-bold text-slate-400 mb-6 uppercase tracking-widest border-b border-white/5 pb-2">Votos por Registro (Oficial)</h3>
+           {#each Object.entries(data.oficial.candidatos) as [cand, votes]}
+             <div class="relative group">
+               <div class="flex justify-between mb-3">
+                 <span class="font-black text-lg text-slate-200 tracking-wide uppercase">{cand}</span>
+                 <span class="font-mono text-slate-400 text-lg">{votes.toLocaleString()}</span>
+               </div>
+               <div class="h-4 w-full bg-[#0f172a] rounded-full overflow-hidden border border-white/5 shadow-inner">
+                 <div class="h-full rounded-full transition-all duration-1000 ease-out {cand === 'Baratheon' ? 'border-2 border-black box-border' : ''}" 
+                      style="width: {data.oficial.total > 0 ? Math.min((votes/data.oficial.total)*100, 100) : 0}%; background-color: {cand === 'Lannister' ? '#FFD700' : cand === 'Targaryen' ? '#E11D48' : cand === 'Baratheon' ? '#FACC15' : '#94A3B8'}">
+                 </div>
+               </div>
+             </div>
+           {/each}
+         </div>
        </div>
      </div>
   </div>
@@ -173,7 +198,7 @@
 
 {#snippet logsTab()}
   <div class="tab-content">
-     <div class="p-8 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 h-[700px] flex flex-col">
+     <div class="p-8 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 flex flex-col">
        <div class="flex justify-between items-center mb-6 border-b border-white/5 pb-6">
          <div>
            <h2 class="text-2xl font-black text-slate-100 font-mono tracking-widest">BITÁCORA TÉCNICA</h2>
@@ -184,7 +209,7 @@
          </span>
        </div>
        
-       <div class="overflow-y-auto flex-1 custom-scrollbar pr-2">
+       <div class="overflow-y-auto max-h-[600px] flex-1 custom-scrollbar pr-2">
          <table class="w-full text-left text-slate-300 text-sm">
            <thead class="text-xs uppercase bg-[#0f172a] text-slate-500 sticky top-0 z-10 shadow-sm">
              <tr>
@@ -231,8 +256,8 @@
     <div class="grid grid-cols-2 gap-6">
       <div class="p-6 rounded-2xl bg-[#1e293b] shadow-xl border border-white/5 flex items-center justify-between">
         <div>
-          <h3 class="font-bold text-slate-200 text-lg">PostgreSQL OF</h3>
-          <p class="text-xs text-slate-500 font-mono">PORT: 5433</p>
+          <h3 class="font-bold text-slate-200 text-lg">MongoDB OF</h3>
+          <p class="text-xs text-slate-500 font-mono">PORT: 27017</p>
         </div>
         <div class="flex items-center gap-2">
           <span class="relative flex h-3 w-3">
@@ -263,10 +288,10 @@
         <div>
           <div class="flex justify-between mb-2">
             <span class="text-sm font-bold text-slate-400">Mesas en catálogo maestro</span>
-            <span class="text-sm font-bold text-slate-400">100%</span>
+            <span class="text-sm font-bold text-slate-400">5396</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-gradient-to-r from-purple-600 to-[#FFD700] h-full rounded-full transition-all duration-1000" style="width: 100%"></div>
+            <div class="bg-purple-500 h-full rounded-full transition-all duration-1000" style="width: 100%"></div>
           </div>
         </div>
         
@@ -276,7 +301,7 @@
             <span class="text-sm font-bold text-slate-400">{processed} / 5396</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-gradient-to-r from-purple-600 to-[#FFD700] h-full rounded-full transition-all duration-1000" style="width: {Math.min((processed/5396)*100, 100)}%"></div>
+            <div class="bg-blue-500 h-full rounded-full transition-all duration-1000" style="width: {Math.min((processed/5396)*100, 100)}%"></div>
           </div>
         </div>
         <div>
@@ -285,16 +310,16 @@
             <span class="text-sm font-bold text-slate-400">{(processed * 0.95).toFixed(0)}</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full rounded-full transition-all duration-1000" style="width: {Math.min(((processed * 0.95)/5396)*100, 100)}%"></div>
+            <div class="bg-emerald-500 h-full rounded-full transition-all duration-1000" style="width: {Math.min(((processed * 0.95)/5396)*100, 100)}%"></div>
           </div>
         </div>
         <div>
           <div class="flex justify-between mb-2">
-            <span class="text-sm font-bold text-slate-400">Pendientes sin reporte</span>
-            <span class="text-sm font-bold text-slate-400">{Math.max(5396 - processed, 0)}</span>
+            <span class="text-sm font-bold text-slate-400">Pendientes sin reporte / Observados</span>
+            <span class="text-sm font-bold text-slate-400">{5396 - processed}</span>
           </div>
           <div class="w-full bg-[#0f172a] rounded-full h-6 border border-white/5 shadow-inner">
-            <div class="bg-gradient-to-r from-rose-500 to-rose-400 h-full rounded-full transition-all duration-1000" style="width: {Math.min((Math.max(5396 - processed, 0)/5396)*100, 100)}%"></div>
+            <div class="bg-rose-500 h-full rounded-full transition-all duration-1000" style="width: {Math.min(((5396 - processed)/5396)*100, 100)}%"></div>
           </div>
         </div>
       </div>
@@ -353,7 +378,7 @@
     <div class="header-card mb-8 p-6 rounded-2xl bg-[#1e293b] border border-white/5 flex justify-between items-center shadow-xl">
       <div class="flex items-center gap-6">
         <div>
-          <h1 class="text-3xl font-black tracking-tight text-slate-100">SISTEMA REAL DE <span class="text-[#FFD700]">CÓMPUTO</span></h1>
+          <h1 class="text-3xl font-black tracking-tight text-slate-100">CONSEJO DE <span class="text-[#FFD700]">PONIENTE</span></h1>
           <div class="flex gap-3 mt-2">
             <span class="text-xs uppercase tracking-widest text-slate-400 font-bold bg-[#0f172a] px-2 py-0.5 rounded border border-white/5">V.4.0</span>
             <span class="text-xs uppercase tracking-widest text-emerald-400 font-bold bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">ONLINE</span>

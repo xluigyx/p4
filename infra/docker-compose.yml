@@ -1,5 +1,5 @@
 services:
-  # CLÚSTER RRV (MongoDB/Postgres para velocidad)
+  # CLÚSTER RRV (Postgres para velocidad - Recuento Rápido)
   db_rapido:
     image: postgres:16-alpine
     container_name: db_rapido
@@ -19,20 +19,17 @@ services:
     networks:
       - antigravity_net
 
-  # CLÚSTER OFICIAL (Postgres para consistencia)
+  # CLÚSTER OFICIAL (MongoDB para consistencia)
   db_oficial:
-    image: postgres:16-alpine
+    image: mongo:6
     container_name: db_oficial
     environment:
-      POSTGRES_DB: oficial_db
-      POSTGRES_PASSWORD: bolivia_vota
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      MONGO_INITDB_DATABASE: oficial_db
     ports:
-      - "5433:5432"
+      - "27017:27017"
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d oficial_db"]
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 5s
       timeout: 5s
       retries: 5
@@ -43,10 +40,10 @@ services:
   backend:
     build: ../backend
     environment:
-      - DB_OFICIAL=postgresql://postgres:bolivia_vota@db_oficial:5432/oficial_db
+      - DB_OFICIAL=mongodb://db_oficial:27017/oficial_db
       - DB_RAPIDO=postgresql://postgres:bolivia_vota@db_rapido:5432/rrv_db
     volumes:
-      - ../backend/ingest:/app/ingest:ro # MAPEO DE LECTURA (Evita Error Invalid cross-device link)
+      - ../backend/ingest:/app/ingest:ro # MAPEO DE LECTURA
     depends_on:
       db_oficial:
         condition: service_healthy
@@ -62,6 +59,8 @@ services:
       - "5173:5173"
     environment:
       - VITE_API_URL=http://backend:8000
+      - DB_OFICIAL=mongodb://db_oficial:27017/oficial_db
+      - DB_RAPIDO=postgresql://postgres:bolivia_vota@db_rapido:5432/rrv_db
     depends_on:
       - backend
     networks:

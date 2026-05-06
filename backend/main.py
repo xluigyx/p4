@@ -8,6 +8,8 @@ import asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import pymongo
+
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -15,11 +17,12 @@ INGEST_DIR_RRV = "/app/ingest/rrv"
 redis_client = redis.Redis(host='redis_queue', port=6379, db=0)
 
 # Connect to both clusters
-DB_OFICIAL_URL = os.environ.get("DB_OFICIAL", "postgresql://postgres:bolivia_vota@db_oficial:5432/oficial_db")
+DB_OFICIAL_URL = os.environ.get("DB_OFICIAL", "mongodb://db_oficial:27017/oficial_db")
 DB_RAPIDO_URL = os.environ.get("DB_RAPIDO", "postgresql://postgres:bolivia_vota@db_rapido:5432/rrv_db")
 
-engine_oficial = create_engine(DB_OFICIAL_URL)
-SessionLocalOficial = sessionmaker(autocommit=False, autoflush=False, bind=engine_oficial)
+# MongoDB
+client_oficial = pymongo.MongoClient(DB_OFICIAL_URL)
+db_oficial = client_oficial.get_database()
 
 engine_rapido = create_engine(DB_RAPIDO_URL)
 SessionLocalRapido = sessionmaker(autocommit=False, autoflush=False, bind=engine_rapido)
@@ -29,8 +32,8 @@ async def startup_event():
     os.makedirs(INGEST_DIR_RRV, exist_ok=True)
     # Ping both databases to ensure connectivity
     try:
-        with engine_oficial.connect() as conn:
-            print("Conectado exitosamente a DB_OFICIAL")
+        client_oficial.admin.command('ping')
+        print("Conectado exitosamente a DB_OFICIAL (MongoDB)")
         with engine_rapido.connect() as conn:
             print("Conectado exitosamente a DB_RAPIDO")
     except Exception as e:
@@ -40,8 +43,8 @@ async def startup_event():
 async def health_check():
     health = {"db_oficial": "OFFLINE", "db_rapido": "OFFLINE"}
     try:
-        with engine_oficial.connect() as conn:
-            health["db_oficial"] = "ONLINE"
+        client_oficial.admin.command('ping')
+        health["db_oficial"] = "ONLINE"
     except: pass
     try:
         with engine_rapido.connect() as conn:

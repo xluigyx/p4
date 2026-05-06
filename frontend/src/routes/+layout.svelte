@@ -19,7 +19,7 @@
             <p class="text-xs font-mono text-slate-500 tracking-widest uppercase">Sistema de Cómputo Distribuido</p>
             <div class="flex items-center gap-3 group cursor-pointer">
                 <div class="h-[1px] w-8 bg-gradient-to-r from-transparent to-cyan-500/50 group-hover:w-16 transition-all duration-500"></div>
-                <p class="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 tracking-widest uppercase">Hecho por Antigravity</p>
+                <p class="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 tracking-widest uppercase"></p>
                 <div class="h-[1px] w-8 bg-gradient-to-l from-transparent to-fuchsia-500/50 group-hover:w-16 transition-all duration-500"></div>
             </div>
         </div>

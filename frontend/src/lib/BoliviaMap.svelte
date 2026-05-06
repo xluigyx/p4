@@ -89,11 +89,11 @@
   ];
 
   const candColors = {
-    Tyrion: "#38bdf8", // cyan-400
-    Daenerys: "#2563eb", // blue-600
-    Robert: "#8b5cf6", // violet-500
-    Sansa: "#d946ef", // fuchsia-500
-    Empate: "#64748b", // slate-500
+    Lannister: "#FFD700", // Dorado
+    Targaryen: "#E11D48", // Rojo
+    Baratheon: "#FACC15", // Amarillo
+    Stark: "#94A3B8",     // Gris
+    Empate: "#64748b",
   };
 
   function getDeptColor(deptId) {
@@ -182,7 +182,7 @@
 
   {#if selectedDept}
     <div
-      class="absolute right-0 top-0 h-full w-96 bg-[#0a0b10]/80 backdrop-blur-md shadow-[-20px_0_50px_rgba(0,0,0,0.5)] p-8 overflow-y-auto border-l border-white/10"
+      class="absolute right-0 top-0 h-full w-96 bg-[#0a0b10]/80 backdrop-blur-md shadow-[-20px_0_50px_rgba(0,0,0,0.5)] p-8 overflow-y-auto border-l border-white/10 z-50 pointer-events-auto"
       in:fly={{ x: 400, duration: 600, ease: "power3.out" }}
       out:fade={{ duration: 300 }}
     >
@@ -222,7 +222,7 @@
       </p>
 
       <div class="space-y-6">
-        {#each ["Tyrion", "Daenerys", "Robert", "Sansa"] as cand}
+        {#each ["Lannister", "Targaryen", "Baratheon", "Stark"] as cand}
           {@const vts =
             (resultsByDept[selectedDept.id] &&
               resultsByDept[selectedDept.id][cand]) ||
