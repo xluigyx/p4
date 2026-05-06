@@ -11,3 +11,4 @@ pandas
 openpyxl
 SQLAlchemy
 pymongo
+pdf2image==1.17.0
