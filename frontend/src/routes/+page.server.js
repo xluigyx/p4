@@ -46,7 +46,7 @@ export async function load() {
             auditLogs = docs.map((d, i) => ({
                 id: d.id_acta || `ACT-${i}`,
                 time: `10:${String(Math.floor((i/60)%60)).padStart(2, '0')}:${String(i%60).padStart(2, '0')}`,
-                source: 'CSV',
+                source: d.source || 'CSV',
                 link: '#',
                 status: d.status || 'EXITO',
                 reason: d.reason || '-'

@@ -32,7 +32,8 @@ def migrate_csv_to_mongo():
         
         # Limpiar colección previa
         coleccion.delete_many({})
-        print("🧹 Colección 'actas_oficiales' limpiada.")
+        coleccion.create_index("id_acta", unique=True)
+        print("🧹 Colección 'actas_oficiales' limpiada y asegurada con índice único.")
         
         docs_to_insert = []
         for index, row in df.iterrows():
@@ -72,8 +73,11 @@ def migrate_csv_to_mongo():
             docs_to_insert.append(doc)
             
         if docs_to_insert:
-            coleccion.insert_many(docs_to_insert)
-            print(f"✅ Migración completada: {len(docs_to_insert)} actas insertadas en MongoDB.")
+            try:
+                coleccion.insert_many(docs_to_insert, ordered=False)
+            except pymongo.errors.BulkWriteError:
+                pass
+            print(f"✅ Migración completada: {len(docs_to_insert)} actas intentadas en MongoDB.")
         else:
             print("⚠️ No hay datos para insertar.")
             

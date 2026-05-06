@@ -93,10 +93,13 @@ def bot_worker(bot_id, folder_path):
                     cursor = conn.cursor()
                     codigo_acta = resultado.get("codigo_acta", archivo)
                     
-                    # Inject P1 to P4
-                    for cand, cand_votos in [('P1', p1), ('P2', p2), ('P3', p3), ('P4', p4)]:
+                    # Asegurar índice único en PostgreSQL
+                    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_transcripciones_acta_cand ON transcripciones (codigo_acta, candidato)")
+                    
+                    # Inject Lannister to Stark
+                    for cand, cand_votos in [('Lannister', p1), ('Targaryen', p2), ('Baratheon', p3), ('Stark', p4)]:
                         cursor.execute(
-                            "INSERT INTO Transcripciones (codigo_acta, candidato, votos) VALUES (%s, %s, %s)",
+                            "INSERT INTO transcripciones (codigo_acta, candidato, votos) VALUES (%s, %s, %s) ON CONFLICT (codigo_acta, candidato) DO NOTHING",
                             (codigo_acta, cand, cand_votos)
                         )
                     conn.commit()
@@ -117,7 +120,7 @@ def bot_worker(bot_id, folder_path):
                         {"$set": {
                             "status": resultado.get("status"), 
                             "reason": resultado.get("motivo"),
-                            "source": "OCR/VISION"
+                            "source": "PDF"
                         }},
                         upsert=True
                     )
@@ -135,6 +138,8 @@ def csv_bot_worker(bot_id, folder_path):
     db_url_oficial = os.environ.get("DB_OFICIAL", "mongodb://db_oficial:27017/oficial_db")
     client = pymongo.MongoClient(db_url_oficial)
     db_mongo = client.get_database()
+    
+    db_mongo["actas_oficiales"].create_index("id_acta", unique=True)
     
     while True:
         if not os.path.exists(folder_path):
@@ -177,8 +182,12 @@ def csv_bot_worker(bot_id, folder_path):
                     docs_to_insert.append(doc)
                 
                 if docs_to_insert:
-                    db_mongo["actas_oficiales"].insert_many(docs_to_insert)
-                    print(f"✅ Catálogo {archivo} migrado a MongoDB Oficial ({len(docs_to_insert)} actas).")
+                    # Insertar ignorando duplicados
+                    try:
+                        db_mongo["actas_oficiales"].insert_many(docs_to_insert, ordered=False)
+                    except pymongo.errors.BulkWriteError:
+                        pass # Ignore duplicate key errors
+                    print(f"✅ Catálogo {archivo} migrado a MongoDB Oficial ({len(docs_to_insert)} actas intentadas).")
             except Exception as e:
                 print(f"⚠️ Error al procesar CSV {archivo}: {e}")
             

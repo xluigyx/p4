@@ -46,11 +46,20 @@
   let logs = $derived(data.logs && data.logs.length > 0 ? data.logs : Array.from({length: 5}).map((_, i) => ({
       id: `ACT-${String(i+1).padStart(4, '0')}`,
       time: `10:00:00`,
-      source: 'CSV',
+      source: 'PDF',
       link: '#',
       status: 'ESPERANDO DATOS',
       reason: '-'
     })));
+
+  let displayLogs = $derived(logs.filter(log => log.source === 'PDF'));
+
+  $effect(() => {
+    if (displayLogs.some(l => l.status === 'ESPERANDO DATOS')) {
+      const timer = setTimeout(() => invalidateAll(), 1000);
+      return () => clearTimeout(timer);
+    }
+  });
 
   let totalVotes = $derived.by(() => {
     let totals = { Lannister: 0, Targaryen: 0, Baratheon: 0, Stark: 0 };
@@ -221,7 +230,7 @@
              </tr>
            </thead>
            <tbody>
-             {#each logs as log (log.id)}
+             {#each displayLogs as log (log.id)}
                <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
                  <td class="px-6 py-4 font-mono text-xs text-slate-400">{log.time}</td>
                  <td class="px-6 py-4">
@@ -245,7 +254,7 @@
              {/each}
            </tbody>
          </table>
-         {#if logs.length === 0}
+         {#if displayLogs.length === 0}
             <div class="py-10 text-center text-slate-500 font-mono">
               [ NO HAY REGISTROS EN LA BITÁCORA ]
             </div>
