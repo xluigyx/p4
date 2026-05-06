@@ -94,7 +94,8 @@ class ElectoralOCR:
             elif campo == "validos": data["validos"] = val
 
         if status == "OBSERVADA: MANCHA DETECTADA":
-            motivo = f"Mancha detectada en: {', '.join(obstrucciones)}"
+            status = "MANCHA_CRITICA"
+            motivo = f"Obstrucción crítica detectada en: {', '.join(obstrucciones)}"
         else:
             suma = data["P1"] + data["P2"] + data["P3"] + data["P4"]
             if suma != data["validos"] and data["validos"] > 0:
