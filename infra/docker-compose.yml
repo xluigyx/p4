@@ -43,7 +43,8 @@ services:
       - DB_OFICIAL=mongodb://db_oficial:27017/oficial_db
       - DB_RAPIDO=postgresql://postgres:bolivia_vota@db_rapido:5432/rrv_db
     volumes:
-      - ../backend/ingest:/app/ingest:ro # MAPEO DE LECTURA
+      - ../backend:/app # MAPEO DE CÓDIGO EN TIEMPO REAL
+      - ../backend/ingest:/app/ingest:ro # MAPEO DE LECTURA DE ACTAS
     depends_on:
       db_oficial:
         condition: service_healthy
